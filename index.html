@@ -1,11 +1,173 @@
 <!DOCTYPE html>
+<!-- Copyright (C) 2025 Schuyler [full name added later] -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="Private offline-capable AI chat. No accounts. No tracking." />
   <title>Vian AI Flow</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
-  <p>Vian AI Flow — Phase 1 scaffold</p>
+
+  <!-- ═══ SIDEBAR OVERLAY ═══ -->
+  <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <nav id="sidebar" class="sidebar" aria-label="Navigation">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Vian AI Flow</span>
+      <button id="sidebar-close" class="icon-btn" aria-label="Close sidebar">✕</button>
+    </div>
+    <div class="sidebar-actions">
+      <button id="btn-new-chat" class="sidebar-btn">
+        <span aria-hidden="true">＋</span> New Chat
+      </button>
+      <button id="btn-api-manager" class="sidebar-btn">
+        <span aria-hidden="true">🔑</span> API Manager
+      </button>
+      <button id="btn-context-manager" class="sidebar-btn">
+        <span aria-hidden="true">📋</span> Context Manager
+      </button>
+      <button id="btn-settings" class="sidebar-btn">
+        <span aria-hidden="true">⚙</span> Settings
+      </button>
+      <button id="btn-export-chat" class="sidebar-btn">
+        <span aria-hidden="true">⬇</span> Export Chat
+      </button>
+    </div>
+    <div class="sidebar-section-label">History</div>
+    <div id="chat-history-list" class="chat-history-list" aria-label="Chat history"></div>
+  </nav>
+
+  <!-- ═══ TOP BAR ═══ -->
+  <header class="top-bar" role="banner">
+    <button id="hamburger" class="icon-btn" aria-label="Open sidebar" aria-expanded="false">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <rect y="2"  width="18" height="2" rx="1" fill="currentColor"/>
+        <rect y="8"  width="18" height="2" rx="1" fill="currentColor"/>
+        <rect y="14" width="18" height="2" rx="1" fill="currentColor"/>
+      </svg>
+    </button>
+    <select id="model-selector" class="model-selector" aria-label="Select AI model"></select>
+    <button id="context-btn" class="icon-btn context-icon-btn" aria-label="Open context panel" aria-expanded="false">
+      <span id="context-dot" class="context-dot hidden" aria-hidden="true"></span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    </button>
+  </header>
+
+  <!-- ═══ FLOATING CONTEXT PANEL ═══ -->
+  <div id="context-panel" class="context-panel hidden" role="dialog" aria-label="Context blocks">
+    <div class="context-panel-header">
+      <span>Context Blocks</span>
+      <button id="context-manage-link" class="link-btn">Manage →</button>
+    </div>
+    <div id="context-toggle-list" class="context-toggle-list" aria-label="Toggle context blocks"></div>
+  </div>
+
+  <!-- ═══ CHAT AREA ═══ -->
+  <main id="chat-area" class="chat-area" role="main">
+    <div id="messages" class="messages" aria-live="polite" aria-label="Chat messages"></div>
+    <div id="typing-indicator" class="typing-indicator hidden" aria-label="AI is typing" aria-hidden="true">
+      <span></span><span></span><span></span>
+    </div>
+  </main>
+
+  <!-- ═══ INPUT BAR ═══ -->
+  <footer class="input-bar">
+    <textarea
+      id="chat-input"
+      class="chat-input"
+      placeholder="Message Vian…"
+      rows="1"
+      aria-label="Type your message"
+      autocorrect="off"
+      autocapitalize="sentences"
+      spellcheck="true"
+    ></textarea>
+    <button id="send-btn" class="send-btn" aria-label="Send message">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+    </button>
+  </footer>
+
+  <!-- ═══ MODAL: API MANAGER ═══ -->
+  <div id="modal-api" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-api-title">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span id="modal-api-title" class="modal-title">API Manager</span>
+        <button class="modal-close icon-btn" data-modal="modal-api" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-note">Keys are stored on your device only. They go directly to the provider — no relay, no proxy, no tracking.</p>
+        <label class="field-label" for="key-anthropic">Anthropic</label>
+        <input type="password" id="key-anthropic" class="key-input" placeholder="sk-ant-…" autocomplete="off" />
+        <label class="field-label" for="key-openai">OpenAI</label>
+        <input type="password" id="key-openai" class="key-input" placeholder="sk-…" autocomplete="off" />
+        <label class="field-label" for="key-google">Google</label>
+        <input type="password" id="key-google" class="key-input" placeholder="AIza…" autocomplete="off" />
+        <label class="field-label" for="key-deepseek">DeepSeek</label>
+        <input type="password" id="key-deepseek" class="key-input" placeholder="sk-…" autocomplete="off" />
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-keys" class="primary-btn">Save Keys</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL: CONTEXT MANAGER ═══ -->
+  <div id="modal-context" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-ctx-title">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span id="modal-ctx-title" class="modal-title">Context Manager</span>
+        <button class="modal-close icon-btn" data-modal="modal-context" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <label class="field-label" for="ctx-new-name">Block Name</label>
+        <input type="text" id="ctx-new-name" class="key-input" placeholder="e.g. Bullet-point mode" />
+        <label class="field-label" for="ctx-new-content">Instructions</label>
+        <textarea id="ctx-new-content" class="ctx-textarea" placeholder="Instructions for the AI…" rows="4"></textarea>
+        <button id="btn-add-ctx" class="primary-btn" style="margin-bottom:1rem;">Add Block</button>
+        <div id="ctx-blocks-list" class="ctx-blocks-list" aria-label="Saved context blocks"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL: SETTINGS ═══ -->
+  <div id="modal-settings" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span id="modal-settings-title" class="modal-title">Settings</span>
+        <button class="modal-close icon-btn" data-modal="modal-settings" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-name">Auto-execute AI scripts</span>
+            <span class="setting-desc">Run [RUN] blocks automatically when streaming ends</span>
+          </div>
+          <label class="toggle-switch" aria-label="Auto-execute AI scripts">
+            <input type="checkbox" id="setting-autorun" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
 </body>
 </html>
