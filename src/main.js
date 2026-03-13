@@ -3,8 +3,6 @@
 
 // ═══════════════════════════════════════════
 // VIAN AI FLOW — Main Orchestrator
-// Ties all modules together. Replaces the
-// Phase 1 placeholder main.js.
 // ═══════════════════════════════════════════
 
 import {
@@ -17,17 +15,13 @@ import {
 } from './db/storage.js';
 
 import { ALL_MODELS, streamMessage } from './api/index.js';
-import { toMirrorUrl, fetchFromMirror } from './utils/repo-mirror.js';
+import { resolveUrl, fetchFromMirror } from './utils/repo-mirror.js';
 
 // ─── Constants ───────────────────────────────────────────────
 
-// Regex to detect [RUN]...[/RUN] blocks in AI responses
-const RUN_RE = /\[RUN\]([\s\S]*?)\[\/RUN\]/g;
-
-// Regex to detect [FETCH]...[/FETCH] blocks in AI responses
+const RUN_RE   = /\[RUN\]([\s\S]*?)\[\/RUN\]/g;
 const FETCH_RE = /\[FETCH\]\s*(https?:\/\/\S+)\s*\[\/FETCH\]/g;
 
-// Base system instruction always appended last
 const BASE_SYSTEM = `You are Vian AI Flow, a private AI assistant.
 
 REPO FETCHING:
@@ -58,49 +52,51 @@ It exists only to give you conversation memory across model switches.`;
 
 // ─── State ───────────────────────────────────────────────────
 
-let currentConvId = null;
-let currentMsgs   = [];   // { role, content, model?, usage? }
-let contextBlocks = [];
-let isStreaming    = false;
-let sandboxWorker = null;
-let pendingScripts = {};  // runId → script string
+let currentConvId  = null;
+let currentMsgs    = [];
+let contextBlocks  = [];
+let isStreaming     = false;
+let sandboxWorker  = null;
+let pendingScripts = {};
 
 // ─── DOM refs ────────────────────────────────────────────────
 
 const $ = (id) => document.getElementById(id);
 
 const els = {
-  sidebar:         $('sidebar'),
-  overlay:         $('sidebar-overlay'),
-  hamburger:       $('hamburger'),
-  sidebarClose:    $('sidebar-close'),
-  modelSel:        $('model-selector'),
-  ctxBtn:          $('context-btn'),
-  ctxDot:          $('context-dot'),
-  ctxPanel:        $('context-panel'),
-  ctxToggleList:   $('context-toggle-list'),
-  ctxManageLink:   $('context-manage-link'),
-  chatArea:        $('chat-area'),
-  messages:        $('messages'),
-  typing:          $('typing-indicator'),
-  input:           $('chat-input'),
-  sendBtn:         $('send-btn'),
-  historyList:     $('chat-history-list'),
-  btnNewChat:      $('btn-new-chat'),
-  btnApi:          $('btn-api-manager'),
-  btnCtxMgr:       $('btn-context-manager'),
-  btnSettings:     $('btn-settings'),
-  btnExport:       $('btn-export-chat'),
-  btnSaveKeys:     $('btn-save-keys'),
-  btnAddCtx:       $('btn-add-ctx'),
-  ctxBlocksList:   $('ctx-blocks-list'),
-  autorunToggle:   $('setting-autorun'),
+  sidebar:        $('sidebar'),
+  overlay:        $('sidebar-overlay'),
+  hamburger:      $('hamburger'),
+  sidebarClose:   $('sidebar-close'),
+  modelSel:       $('model-selector'),
+  ctxBtn:         $('context-btn'),
+  ctxDot:         $('context-dot'),
+  ctxPanel:       $('context-panel'),
+  ctxToggleList:  $('context-toggle-list'),
+  ctxManageLink:  $('context-manage-link'),
+  chatArea:       $('chat-area'),
+  messages:       $('messages'),
+  typing:         $('typing-indicator'),
+  input:          $('chat-input'),
+  sendBtn:        $('send-btn'),
+  historyList:    $('chat-history-list'),
+  btnNewChat:     $('btn-new-chat'),
+  btnApi:         $('btn-api-manager'),
+  btnCtxMgr:      $('btn-context-manager'),
+  btnSettings:    $('btn-settings'),
+  btnExport:      $('btn-export-chat'),
+  btnSaveKeys:    $('btn-save-keys'),
+  btnAddCtx:      $('btn-add-ctx'),
+  ctxBlocksList:  $('ctx-blocks-list'),
+  autorunToggle:  $('setting-autorun'),
+  themeToggle:    $('setting-theme'),
 };
 
 // ─── Boot ────────────────────────────────────────────────────
 
 async function init() {
   await initDB();
+  applyTheme();
   buildModelSelector();
   loadSettings();
   await loadContextBlocks();
@@ -128,12 +124,11 @@ function startWorker() {
   }
 }
 
-// Load Marked.js from CDN then boot
 function loadScript(src) {
   return new Promise((res, rej) => {
-    const s  = document.createElement('script');
-    s.src    = src;
-    s.onload = res;
+    const s   = document.createElement('script');
+    s.src     = src;
+    s.onload  = res;
     s.onerror = rej;
     document.head.appendChild(s);
   });
@@ -143,20 +138,47 @@ loadScript('https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js')
   .then(() => {
     if (window.marked) window.marked.setOptions({ breaks: true, gfm: true });
   })
-  .catch(() => { /* fallback renderer handles it */ })
+  .catch(() => {})
   .finally(() => init());
+
+// ─── Theme ───────────────────────────────────────────────────
+
+function applyTheme() {
+  const theme = getSetting('theme', 'dark');
+  document.documentElement.setAttribute('data-theme', theme);
+  if (els.themeToggle) els.themeToggle.value = theme;
+}
 
 // ─── Model Selector ──────────────────────────────────────────
 
 function buildModelSelector() {
-  const groups = {};
+  const groups  = {};
+  const saved   = getSetting('model', ALL_MODELS[0].id);
+  let   hasAny  = false;
+  let   hasSaved = false;
+
   for (const m of ALL_MODELS) {
+    if (!getKey(m.provider)) continue; // skip providers with no key
+    hasAny = true;
+    if (m.id === saved) hasSaved = true;
     (groups[m.group] = groups[m.group] || []).push(m);
   }
+
   els.modelSel.innerHTML = '';
+
+  if (!hasAny) {
+    const opt       = document.createElement('option');
+    opt.value       = '';
+    opt.textContent = 'No keys saved — open API Manager';
+    opt.disabled    = true;
+    opt.selected    = true;
+    els.modelSel.appendChild(opt);
+    return;
+  }
+
   for (const [grp, models] of Object.entries(groups)) {
-    const og = document.createElement('optgroup');
-    og.label = grp;
+    const og   = document.createElement('optgroup');
+    og.label   = grp;
     for (const m of models) {
       const opt       = document.createElement('option');
       opt.value       = m.id;
@@ -165,14 +187,16 @@ function buildModelSelector() {
     }
     els.modelSel.appendChild(og);
   }
-  const saved = getSetting('model', ALL_MODELS[0].id);
-  if (saved) els.modelSel.value = saved;
+
+  // Restore saved selection if still available, else pick first
+  els.modelSel.value = hasSaved ? saved : ALL_MODELS.find(m => getKey(m.provider))?.id || '';
 }
 
 // ─── Settings ────────────────────────────────────────────────
 
 function loadSettings() {
   els.autorunToggle.checked = getSetting('autorun', true);
+  if (els.themeToggle) els.themeToggle.value = getSetting('theme', 'dark');
 }
 
 // ─── Context Blocks ──────────────────────────────────────────
@@ -335,6 +359,12 @@ async function sendMessage() {
   const rawText = els.input.value.trim();
   if (!rawText) return;
 
+  const model = els.modelSel.value;
+  if (!model) {
+    showToast('Add an API key first — open API Manager in the sidebar.');
+    return;
+  }
+
   els.messages.querySelector('.welcome-screen')?.remove();
   els.input.value = '';
   resizeInput();
@@ -357,7 +387,6 @@ async function doStream() {
   const model  = els.modelSel.value;
   const system = buildSystemPrompt();
 
-  // Create assistant bubble
   const row    = document.createElement('div');
   row.className = 'msg-row assistant';
   const bubble = document.createElement('div');
@@ -377,17 +406,14 @@ async function doStream() {
       onUsage: (u) => { usage = u; },
     })) {
       fullText += chunk;
-      // Live preview: strip special blocks while streaming
       bubble.innerHTML = mdRender(stripBlocks(fullText));
       scrollDown();
     }
 
-    // Post-stream: handle [FETCH] blocks first, then [RUN] blocks
     fullText = await handleFetchBlocks(fullText, bubble);
     bubble.innerHTML = await renderWithRunBlocks(fullText, bubble);
     applyCodeBlocks(bubble);
 
-    // Token meta line
     if (usage) {
       const meta       = document.createElement('div');
       meta.className   = 'token-meta';
@@ -398,7 +424,7 @@ async function doStream() {
     currentMsgs.push({ role: 'assistant', content: fullText, model, usage });
 
   } catch (err) {
-    bubble.innerHTML = `<span style="color:#ff7070">⚠ ${esc(err.message)}</span>`;
+    bubble.innerHTML = `<span style="color:var(--error)">⚠ ${esc(err.message)}</span>`;
     showToast(err.message);
   } finally {
     isStreaming          = false;
@@ -409,14 +435,6 @@ async function doStream() {
 
 // ─── [FETCH] Block Handling ───────────────────────────────────
 
-/**
- * Scan fullText for [FETCH] blocks. For each one:
- *   1. Show a fetch status line in the bubble.
- *   2. Rewrite the URL to the mirror and fetch.
- *   3. Inject fetched content as a system message.
- *   4. Stream another AI turn so the AI can respond with the data.
- * Returns the final fullText (fetch blocks replaced with status notes).
- */
 async function handleFetchBlocks(fullText, bubble) {
   const matches = [...fullText.matchAll(FETCH_RE)];
   if (!matches.length) return fullText;
@@ -425,41 +443,36 @@ async function handleFetchBlocks(fullText, bubble) {
 
   for (const m of matches) {
     const originalUrl = m[1].trim();
-    const mirrorUrl   = toMirrorUrl(originalUrl);
+    const resolved    = resolveUrl(originalUrl);
 
-    if (!mirrorUrl) {
+    if (!resolved) {
       result = result.replace(m[0],
-        `[Fetch skipped: unrecognised URL format — ${esc(originalUrl)}]`);
+        `[Fetch skipped: unrecognised URL — ${esc(originalUrl)}]`);
       continue;
     }
 
-    // Show fetching indicator
     bubble.innerHTML = mdRender(stripBlocks(result).replace(
-      m[0], `<span class="fetch-status">⟳ Fetching ${esc(originalUrl)}…</span>`
+      m[0],
+      `<span class="fetch-status">⟳ Fetching ${esc(originalUrl)} via ${resolved.via}…</span>`
     ));
 
     let fetched;
     try {
-      fetched = await fetchFromMirror(mirrorUrl);
-      showToast('Repo fetched ✓', 'success', 2000);
+      fetched = await fetchFromMirror(resolved.url);
+      showToast(`Fetched via ${resolved.via} ✓`, 'success', 2000);
     } catch (err) {
-      const note = `[Fetch failed for ${originalUrl}: ${err.message}]`;
-      result = result.replace(m[0], note);
+      result = result.replace(m[0], `[Fetch failed: ${err.message}]`);
       showToast('Fetch failed: ' + err.message);
       continue;
     }
 
-    // Replace the [FETCH] block in the stored text
     result = result.replace(m[0], `[Fetched: ${originalUrl}]`);
 
-    // Inject fetched content as a system-role context message
-    // then trigger another stream turn so the AI can use it
     currentMsgs.push({
       role: 'user',
-      content: `[SYSTEM: Repo content fetched from ${originalUrl}]\n\n${fetched}\n\n[END FETCH]\n\nPlease continue your response using the above content.`,
+      content: `[SYSTEM: Content fetched from ${originalUrl}]\n\n${fetched}\n\n[END FETCH]\n\nPlease continue your response using the above content.`,
     });
 
-    // Stream the follow-up response
     await doStream();
   }
 
@@ -484,16 +497,14 @@ async function renderWithRunBlocks(text, bubble) {
     const escaped = esc(m[0]);
 
     if (autorun) {
-      html = html.replace(
-        escaped,
-        `<em style="color:var(--green-dim);font-size:12px;font-family:var(--mono);">[⚡ Script executed — ZIP downloading]</em>`
+      html = html.replace(escaped,
+        `<em style="color:var(--accent-dim);font-size:12px;font-family:var(--mono);">[⚡ Script executed — ZIP downloading]</em>`
       );
       executeSandbox(script);
     } else {
       const rid = generateId();
       pendingScripts[rid] = script;
-      html = html.replace(
-        escaped,
+      html = html.replace(escaped,
         `<div class="run-block-wrapper">
           <div class="run-block-header">
             <span class="run-block-label">⚡ [RUN] Script</span>
@@ -507,7 +518,6 @@ async function renderWithRunBlocks(text, bubble) {
     }
   }
 
-  // Bind run buttons after a short delay for DOM to settle
   setTimeout(() => {
     bubble.querySelectorAll('[data-run-id]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -522,7 +532,7 @@ async function renderWithRunBlocks(text, bubble) {
 
 function executeSandbox(script) {
   if (!sandboxWorker) {
-    showToast('Sandbox worker unavailable — cannot execute script safely.');
+    showToast('Sandbox worker unavailable.');
     return;
   }
   const id = generateId();
@@ -530,7 +540,6 @@ function executeSandbox(script) {
   function handler(e) {
     if (e.data.id !== id) return;
     sandboxWorker.removeEventListener('message', handler);
-
     if (e.data.error) {
       showToast('Script error: ' + e.data.error);
     } else {
@@ -556,7 +565,6 @@ function mdRender(text) {
   if (window.marked) {
     try { return window.marked.parse(text); } catch { /* fall through */ }
   }
-  // Basic fallback if CDN unavailable
   return esc(text).replace(/\n/g, '<br>');
 }
 
@@ -583,7 +591,7 @@ function applyCodeBlocks(container) {
       </div>`;
 
     const body = document.createElement('div');
-    body.className     = 'code-block-body folded';
+    body.className   = 'code-block-body folded';
     body.style.maxHeight = '0px';
 
     const newPre  = document.createElement('pre');
@@ -596,7 +604,6 @@ function applyCodeBlocks(container) {
     wrap.appendChild(body);
     pre.replaceWith(wrap);
 
-    // Fold / Unfold
     const foldBtn = hdr.querySelector('.fold-btn');
     foldBtn.addEventListener('click', () => {
       const folded = body.classList.toggle('folded');
@@ -604,14 +611,12 @@ function applyCodeBlocks(container) {
       foldBtn.textContent  = folded ? 'Unfold' : 'Fold';
     });
 
-    // Copy
     hdr.querySelector('.copy-btn').addEventListener('click', () => {
       navigator.clipboard.writeText(raw)
         .then(() => showToast('Copied!', 'success', 1500))
         .catch(() => showToast('Copy failed.'));
     });
 
-    // Save as file
     hdr.querySelector('.save-btn').addEventListener('click', () => {
       const blob = new Blob([raw], { type: 'text/plain' });
       const url  = URL.createObjectURL(blob);
@@ -764,13 +769,10 @@ function esc(s) {
 // ─── Event Bindings ───────────────────────────────────────────
 
 function bindEvents() {
-
-  // Sidebar open / close
   els.hamburger.addEventListener('click', openSidebar);
   els.sidebarClose.addEventListener('click', closeSidebar);
   els.overlay.addEventListener('click', closeSidebar);
 
-  // Sidebar buttons
   els.btnNewChat.addEventListener('click', newChat);
 
   els.btnApi.addEventListener('click', () => {
@@ -794,7 +796,6 @@ function bindEvents() {
     closeSidebar();
   });
 
-  // Context panel toggle
   els.ctxBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     toggleCtxPanel();
@@ -805,7 +806,6 @@ function bindEvents() {
     openModal('modal-context');
   });
 
-  // Close context panel on outside tap
   document.addEventListener('click', (e) => {
     if (
       !els.ctxPanel.classList.contains('hidden') &&
@@ -814,29 +814,27 @@ function bindEvents() {
     ) closeCtxPanel();
   });
 
-  // Modal close buttons
   document.querySelectorAll('.modal-close').forEach(btn => {
     btn.addEventListener('click', () => closeModal(btn.dataset.modal));
   });
 
-  // Tap outside modal box to close
   document.querySelectorAll('.modal').forEach(modal => {
     modal.addEventListener('click', (e) => {
       if (e.target === modal) closeModal(modal.id);
     });
   });
 
-  // Save API keys
+  // Save keys + refresh model selector
   els.btnSaveKeys.addEventListener('click', () => {
     ['anthropic', 'openai', 'google', 'deepseek'].forEach(p => {
       const el = $(`key-${p}`);
       if (el) setKey(p, el.value.trim());
     });
+    buildModelSelector(); // refresh — only show models with keys
     showToast('Keys saved.', 'success');
     closeModal('modal-api');
   });
 
-  // Add context block
   els.btnAddCtx.addEventListener('click', async () => {
     const name    = $('ctx-new-name').value.trim();
     const content = $('ctx-new-content').value.trim();
@@ -854,16 +852,23 @@ function bindEvents() {
     updateCtxDot();
   });
 
-  // Settings toggles
   els.autorunToggle.addEventListener('change', () => {
     setSetting('autorun', els.autorunToggle.checked);
   });
+
+  // Theme toggle
+  if (els.themeToggle) {
+    els.themeToggle.addEventListener('change', () => {
+      const theme = els.themeToggle.value;
+      setSetting('theme', theme);
+      document.documentElement.setAttribute('data-theme', theme);
+    });
+  }
 
   els.modelSel.addEventListener('change', () => {
     setSetting('model', els.modelSel.value);
   });
 
-  // Send message
   els.sendBtn.addEventListener('click', sendMessage);
 
   els.input.addEventListener('keydown', (e) => {
@@ -874,7 +879,5 @@ function bindEvents() {
   });
 
   els.input.addEventListener('input', resizeInput);
-
-  // Scroll to bottom when Android keyboard opens
   els.input.addEventListener('focus', () => setTimeout(scrollDown, 350));
 }
