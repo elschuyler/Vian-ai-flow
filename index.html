@@ -13,6 +13,17 @@
   <title>Vian AI Flow</title>
   <link rel="manifest" href="./manifest.json" />
   <link rel="icon" href="./icons/icon-192.png" />
+  <!-- Apply theme before render to avoid flash -->
+  <script>
+    (function(){
+      try {
+        var t = JSON.parse(localStorage.getItem('vian_theme')) || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
   <script type="module" crossorigin src="/Vian-ai-flow/assets/index-B1J31qGb.js"></script>
   <link rel="stylesheet" crossorigin href="/Vian-ai-flow/assets/index-Bz5cs-Bq.css">
 </head>
@@ -155,19 +166,34 @@
         <button class="modal-close icon-btn" data-modal="modal-settings" aria-label="Close">✕</button>
       </div>
       <div class="modal-body">
+
+        <!-- Theme -->
         <div class="setting-row">
           <div class="setting-info">
-            <span class="setting-name">Auto-execute AI scripts</span>
-            <span class="setting-desc">Run [RUN] blocks automatically when streaming ends</span>
+            <div class="setting-label">Theme</div>
+            <div class="setting-desc">Switch between dark and light mode</div>
           </div>
-          <label class="toggle-switch" aria-label="Auto-execute AI scripts">
+          <select id="setting-theme" class="setting-select">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </div>
+
+        <!-- Auto-run -->
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Auto-execute AI scripts</div>
+            <div class="setting-desc">Run [RUN] blocks automatically when streaming ends</div>
+          </div>
+          <label class="toggle-switch">
             <input type="checkbox" id="setting-autorun" />
             <span class="toggle-slider"></span>
           </label>
         </div>
+
       </div>
     </div>
   </div>
 
 </body>
-      </html>
+</html>
