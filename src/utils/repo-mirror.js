@@ -4,65 +4,83 @@
 // ═══════════════════════════════════════════
 // VIAN AI FLOW — Repo Mirror Utility
 //
-// The AI sees GitHub/Codeberg URLs as-is and
-// decides when to fetch via a [FETCH] block.
-// The PWA intercepts that block, rewrites the
-// URL to the mirror proxy, fetches the content,
-// and injects it as a system message.
+// Two routing strategies:
+//   Repo root URLs  → mirror proxy (/context endpoint)
+//   Specific files  → raw.githubusercontent.com directly
 //
 // Mirror base: mirror-for-ai.vialewis31.workers.dev
 // ═══════════════════════════════════════════
 
 const MIRROR = 'https://mirror-for-ai.vialewis31.workers.dev';
 
-// Rewrite rules: repo URL → mirror context URL
-// File/path URLs are also handled automatically
-const RULES = [
-  {
-    // GitHub repo root: github.com/owner/repo
-    re: /^https?:\/\/github\.com\/([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+)\/?$/,
-    toMirror: (m) => `${MIRROR}/github/${m[1]}/${m[2]}/context`,
-  },
-  {
-    // GitHub file path: github.com/owner/repo/blob/branch/path
-    re: /^https?:\/\/github\.com\/([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+)\/blob\/[^/]+\/(.+)$/,
-    toMirror: (m) => `${MIRROR}/github/${m[1]}/${m[2]}/${m[3]}`,
-  },
-  {
-    // Codeberg repo root: codeberg.org/owner/repo
-    re: /^https?:\/\/codeberg\.org\/([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+)\/?$/,
-    toMirror: (m) => `${MIRROR}/codeberg/${m[1]}/${m[2]}/context`,
-  },
-  {
-    // Codeberg file path: codeberg.org/owner/repo/src/branch/branch/path
-    re: /^https?:\/\/codeberg\.org\/([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+)\/src\/branch\/[^/]+\/(.+)$/,
-    toMirror: (m) => `${MIRROR}/codeberg/${m[1]}/${m[2]}/${m[3]}`,
-  },
-];
-
 /**
- * Convert a GitHub or Codeberg URL to its mirror equivalent.
- * Returns the mirror URL string, or null if no rule matched.
+ * Convert a GitHub or Codeberg URL to the correct fetch URL.
+ * - Repo roots use the mirror /context endpoint (structured overview)
+ * - File paths use raw GitHub directly (no proxy needed, faster)
+ * Returns { url, via } where via is 'mirror' or 'raw', or null if unrecognised.
  */
-export function toMirrorUrl(url) {
-  const trimmed = url.trim();
-  for (const rule of RULES) {
-    const m = trimmed.match(rule.re);
-    if (m) return rule.toMirror(m);
-  }
+export function resolveUrl(url) {
+  const s = url.trim();
+
+  // ── GitHub repo root ──────────────────────────────────────
+  let m = s.match(
+    /^https?:\/\/github\.com\/([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+)\/?$/
+  );
+  if (m) return {
+    url: `${MIRROR}/github/${m[1]}/${m[2]}/context`,
+    via: 'mirror',
+  };
+
+  // ── GitHub file path ──────────────────────────────────────
+  m = s.match(
+    /^https?:\/\/github\.com\/([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+)\/blob\/([^/]+)\/(.+)$/
+  );
+  if (m) return {
+    url: `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}/${m[4]}`,
+    via: 'raw',
+  };
+
+  // ── Codeberg repo root ────────────────────────────────────
+  m = s.match(
+    /^https?:\/\/codeberg\.org\/([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+)\/?$/
+  );
+  if (m) return {
+    url: `${MIRROR}/codeberg/${m[1]}/${m[2]}/context`,
+    via: 'mirror',
+  };
+
+  // ── Codeberg file path ────────────────────────────────────
+  m = s.match(
+    /^https?:\/\/codeberg\.org\/([A-Za-z0-9_.\-]+)\/([A-Za-z0-9_.\-]+)\/src\/branch\/([^/]+)\/(.+)$/
+  );
+  if (m) return {
+    url: `${MIRROR}/codeberg/${m[1]}/${m[2]}/${m[4]}`,
+    via: 'mirror', // Codeberg raw not as reliable, keep using mirror
+  };
+
   return null;
 }
 
 /**
- * Fetch content from the mirror proxy.
+ * Legacy helper — returns mirror URL for repo roots only.
+ * Kept for any code that still calls toMirrorUrl directly.
+ * Prefer resolveUrl() for new code.
+ */
+export function toMirrorUrl(url) {
+  const resolved = resolveUrl(url);
+  return resolved ? resolved.url : null;
+}
+
+/**
+ * Fetch content from a resolved URL.
  * Returns plain-text string or throws an Error.
  */
-export async function fetchFromMirror(mirrorUrl) {
-  const res = await fetch(mirrorUrl, {
+export async function fetchFromMirror(resolvedUrl) {
+  const res = await fetch(resolvedUrl, {
     signal: AbortSignal.timeout(20000),
   });
   if (!res.ok) {
-    throw new Error(`Mirror returned HTTP ${res.status} for:\n${mirrorUrl}`);
+    throw new Error(`Fetch returned HTTP ${res.status} for:\n${resolvedUrl}`);
   }
   return res.text();
 }
