@@ -3,39 +3,47 @@ name: Build Vian AI Flow
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
-
-permissions:
-  contents: write
+  workflow_dispatch:
 
 jobs:
   build:
-    name: Build PWA + APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+          node-version: 20
 
       - name: Install dependencies
         run: npm install
 
-      - name: Build PWA with Vite
-        run: npm run build
+      # ── Build 1: GitHub Pages (base = /Vian-ai-flow/) ──────────
+      - name: Build PWA for GitHub Pages
         env:
           BASE_URL: /Vian-ai-flow/
+        run: npm run build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+
+      # ── Build 2: APK (base = /) ────────────────────────────────
+      - name: Build PWA for APK
+        env:
+          BASE_URL: /
+        run: npm run build
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
 
       - name: Add Android platform
         run: npx cap add android
@@ -43,24 +51,12 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Make Gradle wrapper executable
-        run: chmod +x android/gradlew
-
       - name: Build debug APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: vian-ai-flow-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
-
-      - name: Deploy PWA to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          force_orphan: true
