@@ -9,14 +9,14 @@
 import { getKey } from '../db/storage.js';
 
 export const GOOGLE_MODELS = [
-  { id: 'gemini-2.0-flash',             label: 'Gemini 2.0 Flash' },
-  { id: 'gemini-2.5-pro-preview-03-25', label: 'Gemini 2.5 Pro'   },
+  { id: 'gemini-2.0-flash',         label: 'Gemini 2.0 Flash' },
+  { id: 'gemini-2.5-pro-exp-03-25', label: 'Gemini 2.5 Pro'   },
 ];
 
 // USD per million tokens
 const PRICING = {
-  'gemini-2.0-flash':             { in: 0.10, out: 0.40  },
-  'gemini-2.5-pro-preview-03-25': { in: 1.25, out: 10.00 },
+  'gemini-2.0-flash':         { in: 0.10, out: 0.40  },
+  'gemini-2.5-pro-exp-03-25': { in: 1.25, out: 10.00 },
 };
 
 export async function* streamGoogle({ model, messages, system, onUsage }) {
