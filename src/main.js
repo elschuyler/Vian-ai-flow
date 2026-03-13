@@ -654,7 +654,29 @@ function appendMsg(role, content, model, usage, scrollTo) {
   bubble.className = 'msg-bubble';
 
   if (role === 'user') {
-    bubble.textContent = content;
+    const FOLD_THRESHOLD = 80;
+    const isLong = content.length > FOLD_THRESHOLD || content.split('\n').length > 3;
+
+    if (isLong) {
+      bubble.classList.add('user-foldable', 'folded');
+      const text    = document.createElement('div');
+      text.className = 'user-fold-text';
+      text.textContent = content;
+      const fade    = document.createElement('div');
+      fade.className = 'user-fold-fade';
+      const btn     = document.createElement('button');
+      btn.className  = 'user-fold-btn';
+      btn.textContent = 'Show more';
+      btn.addEventListener('click', () => {
+        const folded = bubble.classList.toggle('folded');
+        btn.textContent = folded ? 'Show more' : 'Show less';
+      });
+      bubble.appendChild(text);
+      bubble.appendChild(fade);
+      bubble.appendChild(btn);
+    } else {
+      bubble.textContent = content;
+    }
   } else {
     bubble.innerHTML = mdRender(content);
     setTimeout(() => applyCodeBlocks(bubble), 0);

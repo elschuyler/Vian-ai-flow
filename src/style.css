@@ -394,6 +394,45 @@ input, textarea, select {
   padding: 1px 5px;
 }
 
+/* ─── FOLDABLE USER MESSAGES ─── */
+.msg-bubble.user-foldable {
+  position: relative;
+  cursor: default;
+}
+.user-fold-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.msg-bubble.user-foldable.folded .user-fold-text {
+  max-height: 4.95em; /* 3 lines × 1.65 line-height */
+  overflow: hidden;
+}
+.user-fold-fade {
+  display: none;
+  position: absolute;
+  bottom: 28px;
+  left: 0; right: 0;
+  height: 32px;
+  background: linear-gradient(to bottom, transparent, var(--user-bg));
+  pointer-events: none;
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+}
+.msg-bubble.user-foldable.folded .user-fold-fade {
+  display: block;
+}
+.user-fold-btn {
+  display: block;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 2px 0;
+  text-align: right;
+  width: 100%;
+  transition: opacity var(--ease);
+}
+.user-fold-btn:hover { opacity: 0.75; }
+
 /* ─── TOKEN META ─── */
 .token-meta {
   font-size: 10px;
