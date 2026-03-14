@@ -1,5 +1,7 @@
 # Vian AI Flow
 
+https://elschuyler.github.io/Vian-ai-flow/
+
 > Private offline-capable AI chat. Your keys. Your data. No accounts. No tracking.
 
 Copyright (C) 2025 Schuyler [full name added later]  
