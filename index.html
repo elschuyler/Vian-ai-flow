@@ -54,6 +54,42 @@
         <span aria-hidden="true">⬇</span> Export Chat
       </button>
     </div>
+
+    <!-- ═══ TOOLS SECTION ═══ -->
+    <div class="sidebar-section-label">Tools</div>
+    <div class="sidebar-tools">
+      <div class="tool-toggle-row">
+        <div class="tool-info">
+          <div class="tool-label">Repo / Page Fetcher</div>
+          <div class="tool-desc">AI can fetch GitHub &amp; Codeberg URLs</div>
+        </div>
+        <label class="toggle-switch" aria-label="Toggle Repo / Page Fetcher">
+          <input type="checkbox" id="tool-fetch" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="tool-toggle-row">
+        <div class="tool-info">
+          <div class="tool-label">ZIP Generator</div>
+          <div class="tool-desc">AI can create &amp; download ZIP files</div>
+        </div>
+        <label class="toggle-switch" aria-label="Toggle ZIP Generator">
+          <input type="checkbox" id="tool-zip" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="tool-toggle-row">
+        <div class="tool-info">
+          <div class="tool-label">Artifacts / Preview</div>
+          <div class="tool-desc">HTML preview renderer (coming soon)</div>
+        </div>
+        <label class="toggle-switch" aria-label="Toggle Artifacts / Preview">
+          <input type="checkbox" id="tool-preview" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
     <div class="sidebar-section-label">History</div>
     <div id="chat-history-list" class="chat-history-list" aria-label="Chat history"></div>
   </nav>
