@@ -1,236 +1,171 @@
 <!DOCTYPE html>
-<!-- Copyright (C) 2025 Schuyler [full name added later] -->
-<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#000000" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#14263A" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="description" content="Private offline-capable AI chat. No accounts. No tracking." />
-  <title>Vian AI Flow</title>
-  <link rel="manifest" href="./manifest.json" />
-  <link rel="icon" href="./icons/icon-192.png" />
-  <!-- Apply theme before render to avoid flash -->
+  <title>Vian personal coach lite</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: #EDEAE4;
+      color: #111827;
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+    #root { min-height: 100vh; }
+    button { font-family: inherit; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: #C4B5FD; border-radius: 4px; }
+    @keyframes spin    { to { transform: rotate(360deg); } }
+    @keyframes fadeIn  { from { opacity:0; transform:translateY(8px);  } to { opacity:1; transform:translateY(0); } }
+    @keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    .fade-in  { animation: fadeIn  0.22s ease both; }
+    .slide-up { animation: slideUp 0.28s ease both; }
+    .stagger-1 { animation-delay: 0.05s; }
+    .stagger-2 { animation-delay: 0.10s; }
+    .stagger-3 { animation-delay: 0.15s; }
+  </style>
+
+  <!-- Back button: PWA uses popstate, APK uses Capacitor App plugin -->
   <script>
-    (function(){
-      try {
-        var t = JSON.parse(localStorage.getItem('vian_theme')) || 'dark';
-        document.documentElement.setAttribute('data-theme', t);
-      } catch(e) {
-        document.documentElement.setAttribute('data-theme', 'dark');
+    window._studyBackHandler = null;
+    window._studyCanGoBack = function(){ return false; };
+
+    // PWA / browser
+    history.replaceState({ sc: 0 }, '');
+    history.pushState({ sc: 1 }, '');
+    window.addEventListener('popstate', function () {
+      history.pushState({ sc: 1 }, '');
+      if (typeof window._studyBackHandler === 'function') {
+        window._studyBackHandler();
       }
+    });
+
+    // APK: Capacitor back button — registered after page loads
+    window.addEventListener('load', function () {
+      try {
+        if (
+          window.Capacitor &&
+          typeof window.Capacitor.isNativePlatform === 'function' &&
+          window.Capacitor.isNativePlatform() &&
+          window.Capacitor.Plugins &&
+          window.Capacitor.Plugins.App
+        ) {
+          window.Capacitor.Plugins.App.addListener('backButton', function () {
+            // _studyCanGoBack is set by app.js — true when not on home screen
+            if (window._studyCanGoBack && window._studyCanGoBack()) {
+              if (typeof window._studyBackHandler === 'function') {
+                window._studyBackHandler();
+              }
+            } else {
+              // At home screen — exit the app
+              window.Capacitor.Plugins.App.exitApp();
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Capacitor back button setup failed:', e);
+      }
+    });
+  </script>
+
+  <!-- IndexedDB helper -->
+  <script>
+    (function () {
+      var _db = null;
+      function open() {
+        return new Promise(function (res, rej) {
+          if (_db) return res(_db);
+          var req = indexedDB.open('StudyCoachDB', 1);
+          req.onupgradeneeded = function (e) {
+            var db = e.target.result;
+            if (!db.objectStoreNames.contains('subjects'))
+              db.createObjectStore('subjects', { keyPath: 'subject_id' });
+            if (!db.objectStoreNames.contains('progress'))
+              db.createObjectStore('progress',  { keyPath: 'id' });
+          };
+          req.onsuccess = function (e) { _db = e.target.result; res(_db); };
+          req.onerror   = function ()  { rej(req.error); };
+        });
+      }
+      function tx(store, mode, fn) {
+        return open().then(function (db) {
+          return new Promise(function (res, rej) {
+            var r = fn(db.transaction(store, mode).objectStore(store));
+            r.onsuccess = function () { res(r.result !== undefined ? r.result : null); };
+            r.onerror   = function () { rej(r.error); };
+          });
+        });
+      }
+      window.StudyDB = {
+        get: function (s, k) { return tx(s, 'readonly',  function (st) { return st.get(k);   }); },
+        put: function (s, v) { return tx(s, 'readwrite', function (st) { return st.put(v);   }); },
+        del: function (s, k) { return tx(s, 'readwrite', function (st) { return st.delete(k);}); },
+        all: function (s)    { return tx(s, 'readonly',  function (st) { return st.getAll(); }); }
+      };
     })();
   </script>
-  <script type="module" crossorigin src="/Vian-ai-flow/assets/index-C1SVxoZD.js"></script>
-  <link rel="stylesheet" crossorigin href="/Vian-ai-flow/assets/index-Dc0_t3dj.css">
+
+  <style>
+    #sc-offline-bar {
+      display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+      background: #B45309; color: #fff; font-size: 12px; font-weight: 700;
+      text-align: center; padding: 5px 8px; letter-spacing: 0.5px;
+    }
+    #sc-update-bar {
+      display: none; position: fixed; bottom: 60px; left: 10px; right: 10px; z-index: 9999;
+      background: #14263A; color: #fff; font-size: 13px; font-weight: 600;
+      text-align: center; padding: 10px 14px; border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.35); cursor: pointer;
+    }
+  </style>
+  <div id="sc-offline-bar">📵 Offline — cached content available</div>
+  <div id="sc-update-bar" onclick="window._scApplyUpdate && window._scApplyUpdate()">🔄 App updated — tap to refresh</div>
+  <script>
+    function setOffline(off){ document.getElementById('sc-offline-bar').style.display=off?'block':'none'; }
+    window.addEventListener('online',  function(){ setOffline(false); });
+    window.addEventListener('offline', function(){ setOffline(true);  });
+    if(!navigator.onLine) setOffline(true);
+    if('serviceWorker' in navigator){
+      window.addEventListener('load', function(){
+        navigator.serviceWorker.register('sw.js').then(function(reg){
+          function checkWaiting(reg){
+            if(reg.waiting){
+              document.getElementById('sc-update-bar').style.display='block';
+              window._scApplyUpdate=function(){ reg.waiting.postMessage('SKIP_WAITING'); };
+            }
+          }
+          checkWaiting(reg);
+          reg.addEventListener('updatefound', function(){
+            var n=reg.installing;
+            n.addEventListener('statechange', function(){
+              if(n.state==='installed'&&navigator.serviceWorker.controller) checkWaiting(reg);
+            });
+          });
+          var refreshed=false;
+          navigator.serviceWorker.addEventListener('controllerchange', function(){
+            if(!refreshed){ refreshed=true; window.location.reload(); }
+          });
+        }).catch(function(e){ console.warn('SW failed',e); });
+      });
+    }
+  </script>
+
+  <script src="vendor/react.production.min.js"></script>
+  <script src="vendor/react-dom.production.min.js"></script>
+  <script src="vendor/babel.min.js"></script>
 </head>
 <body>
-
-  <!-- ═══ SIDEBAR OVERLAY ═══ -->
-  <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
-
-  <!-- ═══ SIDEBAR ═══ -->
-  <nav id="sidebar" class="sidebar" aria-label="Navigation">
-    <div class="sidebar-header">
-      <span class="sidebar-title">Vian AI Flow</span>
-      <button id="sidebar-close" class="icon-btn" aria-label="Close sidebar">✕</button>
-    </div>
-    <div class="sidebar-actions">
-      <button id="btn-new-chat" class="sidebar-btn">
-        <span aria-hidden="true">＋</span> New Chat
-      </button>
-      <button id="btn-api-manager" class="sidebar-btn">
-        <span aria-hidden="true">🔑</span> API Manager
-      </button>
-      <button id="btn-context-manager" class="sidebar-btn">
-        <span aria-hidden="true">📋</span> Context Manager
-      </button>
-      <button id="btn-settings" class="sidebar-btn">
-        <span aria-hidden="true">⚙</span> Settings
-      </button>
-      <button id="btn-export-chat" class="sidebar-btn">
-        <span aria-hidden="true">⬇</span> Export Chat
-      </button>
-    </div>
-
-    <!-- ═══ TOOLS SECTION ═══ -->
-    <div class="sidebar-section-label">Tools</div>
-    <div class="sidebar-tools">
-      <div class="tool-toggle-row">
-        <div class="tool-info">
-          <div class="tool-label">Repo / Page Fetcher</div>
-          <div class="tool-desc">AI can fetch GitHub &amp; Codeberg URLs</div>
-        </div>
-        <label class="toggle-switch" aria-label="Toggle Repo / Page Fetcher">
-          <input type="checkbox" id="tool-fetch" />
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-      <div class="tool-toggle-row">
-        <div class="tool-info">
-          <div class="tool-label">ZIP Generator</div>
-          <div class="tool-desc">AI can create &amp; download ZIP files</div>
-        </div>
-        <label class="toggle-switch" aria-label="Toggle ZIP Generator">
-          <input type="checkbox" id="tool-zip" />
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-      <div class="tool-toggle-row">
-        <div class="tool-info">
-          <div class="tool-label">Artifacts / Preview</div>
-          <div class="tool-desc">HTML preview renderer (coming soon)</div>
-        </div>
-        <label class="toggle-switch" aria-label="Toggle Artifacts / Preview">
-          <input type="checkbox" id="tool-preview" />
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-    </div>
-
-    <div class="sidebar-section-label">History</div>
-    <div id="chat-history-list" class="chat-history-list" aria-label="Chat history"></div>
-  </nav>
-
-  <!-- ═══ TOP BAR ═══ -->
-  <header class="top-bar" role="banner">
-    <button id="hamburger" class="icon-btn" aria-label="Open sidebar" aria-expanded="false">
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-        <rect y="2"  width="18" height="2" rx="1" fill="currentColor"/>
-        <rect y="8"  width="18" height="2" rx="1" fill="currentColor"/>
-        <rect y="14" width="18" height="2" rx="1" fill="currentColor"/>
-      </svg>
-    </button>
-    <select id="model-selector" class="model-selector" aria-label="Select AI model"></select>
-    <button id="context-btn" class="icon-btn context-icon-btn" aria-label="Open context panel" aria-expanded="false">
-      <span id="context-dot" class="context-dot hidden" aria-hidden="true"></span>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/>
-        <line x1="12" y1="8" x2="12" y2="12"/>
-        <line x1="12" y1="16" x2="12.01" y2="16"/>
-      </svg>
-    </button>
-  </header>
-
-  <!-- ═══ FLOATING CONTEXT PANEL ═══ -->
-  <div id="context-panel" class="context-panel hidden" role="dialog" aria-label="Context blocks">
-    <div class="context-panel-header">
-      <span>Context Blocks</span>
-      <button id="context-manage-link" class="link-btn">Manage →</button>
-    </div>
-    <div id="context-toggle-list" class="context-toggle-list" aria-label="Toggle context blocks"></div>
-  </div>
-
-  <!-- ═══ CHAT AREA ═══ -->
-  <main id="chat-area" class="chat-area" role="main">
-    <div id="messages" class="messages" aria-live="polite" aria-label="Chat messages"></div>
-    <div id="typing-indicator" class="typing-indicator hidden" aria-label="AI is typing" aria-hidden="true">
-      <span></span><span></span><span></span>
-    </div>
-  </main>
-
-  <!-- ═══ INPUT BAR ═══ -->
-  <footer class="input-bar">
-    <textarea
-      id="chat-input"
-      class="chat-input"
-      placeholder="Message Vian…"
-      rows="1"
-      aria-label="Type your message"
-      autocorrect="off"
-      autocapitalize="sentences"
-      spellcheck="true"
-    ></textarea>
-    <button id="send-btn" class="send-btn" aria-label="Send message">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="22" y1="2" x2="11" y2="13"/>
-        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-      </svg>
-    </button>
-  </footer>
-
-  <!-- ═══ MODAL: API MANAGER ═══ -->
-  <div id="modal-api" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-api-title">
-    <div class="modal-box">
-      <div class="modal-header">
-        <span id="modal-api-title" class="modal-title">API Manager</span>
-        <button class="modal-close icon-btn" data-modal="modal-api" aria-label="Close">✕</button>
-      </div>
-      <div class="modal-body">
-        <p class="modal-note">Keys are stored on your device only. They go directly to the provider — no relay, no proxy, no tracking.</p>
-        <label class="field-label" for="key-anthropic">Anthropic</label>
-        <input type="password" id="key-anthropic" class="key-input" placeholder="sk-ant-…" autocomplete="off" />
-        <label class="field-label" for="key-openai">OpenAI</label>
-        <input type="password" id="key-openai" class="key-input" placeholder="sk-…" autocomplete="off" />
-        <label class="field-label" for="key-google">Google</label>
-        <input type="password" id="key-google" class="key-input" placeholder="AIza…" autocomplete="off" />
-        <label class="field-label" for="key-deepseek">DeepSeek</label>
-        <input type="password" id="key-deepseek" class="key-input" placeholder="sk-…" autocomplete="off" />
-      </div>
-      <div class="modal-footer">
-        <button id="btn-save-keys" class="primary-btn">Save Keys</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ MODAL: CONTEXT MANAGER ═══ -->
-  <div id="modal-context" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-ctx-title">
-    <div class="modal-box">
-      <div class="modal-header">
-        <span id="modal-ctx-title" class="modal-title">Context Manager</span>
-        <button class="modal-close icon-btn" data-modal="modal-context" aria-label="Close">✕</button>
-      </div>
-      <div class="modal-body">
-        <label class="field-label" for="ctx-new-name">Block Name</label>
-        <input type="text" id="ctx-new-name" class="key-input" placeholder="e.g. Bullet-point mode" />
-        <label class="field-label" for="ctx-new-content">Instructions</label>
-        <textarea id="ctx-new-content" class="ctx-textarea" placeholder="Instructions for the AI…" rows="4"></textarea>
-        <button id="btn-add-ctx" class="primary-btn" style="margin-bottom:1rem;">Add Block</button>
-        <div id="ctx-blocks-list" class="ctx-blocks-list" aria-label="Saved context blocks"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ MODAL: SETTINGS ═══ -->
-  <div id="modal-settings" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title">
-    <div class="modal-box">
-      <div class="modal-header">
-        <span id="modal-settings-title" class="modal-title">Settings</span>
-        <button class="modal-close icon-btn" data-modal="modal-settings" aria-label="Close">✕</button>
-      </div>
-      <div class="modal-body">
-
-        <!-- Theme -->
-        <div class="setting-row">
-          <div class="setting-info">
-            <div class="setting-label">Theme</div>
-            <div class="setting-desc">Switch between dark, light, and electric grid</div>
-          </div>
-          <select id="setting-theme" class="setting-select">
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-            <option value="grid">Electric Grid</option>
-          </select>
-        </div>
-
-        <!-- Auto-run -->
-        <div class="setting-row">
-          <div class="setting-info">
-            <div class="setting-label">Auto-execute AI scripts</div>
-            <div class="setting-desc">Run [RUN] blocks automatically when streaming ends</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="setting-autorun" />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-
-      </div>
-    </div>
-  </div>
-
+  <div id="root"></div>
+  <script type="text/babel" src="app.js" data-presets="react"></script>
 </body>
 </html>
