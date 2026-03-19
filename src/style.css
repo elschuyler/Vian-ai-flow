@@ -152,6 +152,9 @@ input, textarea, select {
   gap: 6px;
   background: var(--topbar-bg);
   border-bottom: 1px solid var(--border);
+  /* Force GPU layer — fixes sticky bar on Android WebView */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 
 .icon-btn {
@@ -276,6 +279,37 @@ input, textarea, select {
   flex-shrink: 0;
 }
 
+/* ─── SIDEBAR TOOLS ─── */
+.sidebar-tools {
+  padding: 2px 10px 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.tool-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 6px;
+  border-radius: var(--r);
+  transition: background var(--ease);
+}
+.tool-toggle-row:hover { background: var(--bg-hover); }
+.tool-info { flex: 1; overflow: hidden; }
+.tool-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.tool-desc {
+  font-size: 11px;
+  color: var(--text-sec);
+  margin-top: 1px;
+  line-height: 1.4;
+}
+
 .chat-history-list {
   flex: 1;
   overflow-y: auto;
@@ -364,6 +398,9 @@ input, textarea, select {
   font-size: 14.5px;
   line-height: 1.65;
   word-break: break-word;
+  /* Allow text selection on long-press in Android WebView */
+  user-select: text;
+  -webkit-user-select: text;
 }
 .msg-row.user .msg-bubble {
   background: var(--user-bg);
