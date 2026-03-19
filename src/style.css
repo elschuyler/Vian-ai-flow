@@ -4,6 +4,7 @@
 /* ═══════════════════════════════════════════════
    VIAN AI FLOW — GLOBAL STYLES
    Dark default. Light theme via [data-theme="light"]
+   Electric Grid theme via [data-theme="grid"]
    ═══════════════════════════════════════════════ */
 
 :root,
@@ -43,6 +44,12 @@
   --cyan-dim:     rgba(0,229,255,0.5);
   --cyan-glow:    rgba(0,229,255,0.08);
   --cyan-glow-md: rgba(0,229,255,0.15);
+
+  /* grid-specific vars (unused in dark, defined for safety) */
+  --grid-line:    transparent;
+  --grid-size:    24px;
+  --node-color:   transparent;
+  --bracket-color: transparent;
 }
 
 /* ─── LIGHT THEME (Claude-inspired) ──────────────────────── */
@@ -81,7 +88,220 @@
   --cyan-dim:     rgba(217,119,6,0.55);
   --cyan-glow:    rgba(217,119,6,0.08);
   --cyan-glow-md: rgba(217,119,6,0.16);
+
+  --grid-line:    transparent;
+  --grid-size:    24px;
+  --node-color:   transparent;
+  --bracket-color: transparent;
 }
+
+/* ─── ELECTRIC GRID THEME ─────────────────────────────────── */
+[data-theme="grid"] {
+  /* Base palette — warm paper like light theme */
+  --bg:           #f5f3ef;
+  --bg-surface:   #edeae3;
+  --bg-elevated:  #e6e2da;
+  --bg-hover:     #dedad0;
+  --border:       #ccc7bc;
+  --border-soft:  #c2bdb1;
+
+  /* Electric indigo accent */
+  --accent:       #6366f1;
+  --accent-dim:   rgba(99,102,241,0.55);
+  --accent-glow:  rgba(99,102,241,0.09);
+  --accent-glow-md: rgba(99,102,241,0.18);
+  --green:        #10b981;
+  --green-dim:    rgba(16,185,129,0.55);
+  --green-glow:   rgba(16,185,129,0.08);
+  --error:        #ef4444;
+
+  --text:         #1e1b18;
+  --text-sec:     #6b6760;
+  --text-dim:     #b8b3a8;
+
+  --user-bg:      #ede9ff;
+  --user-border:  rgba(99,102,241,0.28);
+
+  --sidebar-bg:   #edeae3;
+  --topbar-bg:    #f5f3ef;
+  --input-bg:     #edeae3;
+  --modal-bg:     #f5f3ef;
+  --modal-overlay: rgba(20,18,16,0.58);
+  --scrollbar:    #c2bdb1;
+
+  --cyan:         #6366f1;
+  --cyan-dim:     rgba(99,102,241,0.55);
+  --cyan-glow:    rgba(99,102,241,0.09);
+  --cyan-glow-md: rgba(99,102,241,0.18);
+
+  /* Grid-specific */
+  --grid-line:    rgba(99,102,241,0.09);
+  --grid-size:    24px;
+  --node-color:   rgba(99,102,241,0.35);
+  --bracket-color: rgba(99,102,241,0.45);
+  --bracket-glow: rgba(99,102,241,0.18);
+}
+
+/* ─── GRID TEXTURE on surfaces ───────────────────────────── */
+[data-theme="grid"] body,
+[data-theme="grid"] .chat-area {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      var(--grid-line) 0px,
+      var(--grid-line) 1px,
+      transparent 1px,
+      transparent var(--grid-size)
+    ),
+    repeating-linear-gradient(
+      90deg,
+      var(--grid-line) 0px,
+      var(--grid-line) 1px,
+      transparent 1px,
+      transparent var(--grid-size)
+    );
+}
+
+[data-theme="grid"] .sidebar,
+[data-theme="grid"] .modal-bg,
+[data-theme="grid"] .input-bar {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      var(--grid-line) 0px,
+      var(--grid-line) 1px,
+      transparent 1px,
+      transparent var(--grid-size)
+    ),
+    repeating-linear-gradient(
+      90deg,
+      var(--grid-line) 0px,
+      var(--grid-line) 1px,
+      transparent 1px,
+      transparent var(--grid-size)
+    );
+}
+
+/* ─── BRACKET CORNERS on key panels ─────────────────────── */
+/* Applies to: modal-box, code-block-wrapper, ctx-block-card,
+   context-panel, sidebar header, run-block-wrapper          */
+
+[data-theme="grid"] .modal-box,
+[data-theme="grid"] .code-block-wrapper,
+[data-theme="grid"] .ctx-block-card,
+[data-theme="grid"] .context-panel,
+[data-theme="grid"] .run-block-wrapper {
+  position: relative;
+}
+
+/* Top-left bracket */
+[data-theme="grid"] .modal-box::before,
+[data-theme="grid"] .code-block-wrapper::before,
+[data-theme="grid"] .ctx-block-card::before,
+[data-theme="grid"] .context-panel::before,
+[data-theme="grid"] .run-block-wrapper::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 14px;
+  height: 14px;
+  border-top: 2px solid var(--bracket-color);
+  border-left: 2px solid var(--bracket-color);
+  border-radius: 2px 0 0 0;
+  pointer-events: none;
+  z-index: 1;
+  box-shadow:
+    -1px -1px 6px var(--bracket-glow),
+     1px  1px 3px var(--bracket-glow);
+}
+
+/* Bottom-right bracket */
+[data-theme="grid"] .modal-box::after,
+[data-theme="grid"] .code-block-wrapper::after,
+[data-theme="grid"] .ctx-block-card::after,
+[data-theme="grid"] .context-panel::after,
+[data-theme="grid"] .run-block-wrapper::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 14px;
+  height: 14px;
+  border-bottom: 2px solid var(--bracket-color);
+  border-right: 2px solid var(--bracket-color);
+  border-radius: 0 0 2px 0;
+  pointer-events: none;
+  z-index: 1;
+  box-shadow:
+    1px  1px 6px var(--bracket-glow),
+   -1px -1px 3px var(--bracket-glow);
+}
+
+/* ─── NODE DOTS at bracket corners ──────────────────────── */
+/* Top-left node dot */
+[data-theme="grid"] .modal-box .modal-header::before,
+[data-theme="grid"] .code-block-wrapper .code-block-header::before,
+[data-theme="grid"] .ctx-block-card::before,
+[data-theme="grid"] .context-panel .context-panel-header::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--node-color);
+  box-shadow: 0 0 5px var(--accent-dim);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ─── SIDEBAR left edge glow ─────────────────────────────── */
+[data-theme="grid"] .sidebar {
+  border-right: 1px solid var(--accent-dim);
+  box-shadow: 2px 0 18px rgba(99,102,241,0.08);
+}
+
+/* ─── TOP BAR bottom border glow ─────────────────────────── */
+[data-theme="grid"] .top-bar {
+  border-bottom: 1px solid var(--accent-dim);
+  box-shadow: 0 2px 12px rgba(99,102,241,0.07);
+}
+
+/* ─── INPUT BAR top border glow ──────────────────────────── */
+[data-theme="grid"] .input-bar {
+  border-top: 1px solid var(--accent-dim);
+  box-shadow: 0 -2px 12px rgba(99,102,241,0.07);
+}
+
+/* ─── CHAT INPUT focus ring ───────────────────────────────── */
+[data-theme="grid"] .chat-input:focus {
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+/* ─── SEND BUTTON pulse ───────────────────────────────────── */
+[data-theme="grid"] .send-btn {
+  box-shadow: 0 0 10px var(--accent-glow-md);
+}
+[data-theme="grid"] .send-btn:hover {
+  box-shadow: 0 0 18px var(--accent-dim);
+}
+
+/* ─── HISTORY ITEM active glow ───────────────────────────── */
+[data-theme="grid"] .history-item.active {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* ─── ACCENT DOT extra glow ─────────────────────────────── */
+[data-theme="grid"] .context-dot {
+  box-shadow: 0 0 8px var(--accent), 0 0 16px var(--accent-dim);
+}
+
+/* ══════════════════════════════════════════════════════════ */
+/*  EVERYTHING BELOW IS UNCHANGED FROM PHASE 7               */
+/* ══════════════════════════════════════════════════════════ */
 
 :root {
   --sidebar-w:    272px;
