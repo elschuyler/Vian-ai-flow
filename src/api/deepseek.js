@@ -21,9 +21,9 @@ const PRICING = {
   'deepseek-reasoner': { in: 0.55, out: 2.19 },
 };
 
-export async function* streamDeepSeek({ model, messages, system, onUsage }) {
-  const key = getKey('deepseek');
-  if (!key) throw new Error('No DeepSeek API key. Open API Manager to add one.');
+export async function* streamDeepSeek({ model, messages, system, onUsage, key }) {
+  const apiKey = key || getKey('deepseek');
+  if (!apiKey) throw new Error('No DeepSeek API key. Open API Manager to add one.');
 
   const msgs = system
     ? [{ role: 'system', content: system }, ...messages]
@@ -33,7 +33,7 @@ export async function* streamDeepSeek({ model, messages, system, onUsage }) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${key}`,
+      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,

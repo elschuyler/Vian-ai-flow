@@ -23,9 +23,9 @@ const PRICING = {
   'claude-haiku-4-5-20251001': { in: 0.80,  out: 4.00  },
 };
 
-export async function* streamAnthropic({ model, messages, system, onUsage }) {
-  const key = getKey('anthropic');
-  if (!key) throw new Error('No Anthropic API key. Open API Manager to add one.');
+export async function* streamAnthropic({ model, messages, system, onUsage, key }) {
+  const apiKey = key || getKey('anthropic');
+  if (!apiKey) throw new Error('No Anthropic API key. Open API Manager to add one.');
 
   const body = {
     model,
@@ -39,7 +39,7 @@ export async function* streamAnthropic({ model, messages, system, onUsage }) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': key,
+      'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
@@ -63,7 +63,7 @@ export async function* streamAnthropic({ model, messages, system, onUsage }) {
 
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split('\n');
-    buffer = lines.pop(); // keep incomplete trailing line
+    buffer = lines.pop();
 
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;

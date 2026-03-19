@@ -23,9 +23,9 @@ const PRICING = {
   'o3-mini':     { in: 1.10, out: 4.40  },
 };
 
-export async function* streamOpenAI({ model, messages, system, onUsage }) {
-  const key = getKey('openai');
-  if (!key) throw new Error('No OpenAI API key. Open API Manager to add one.');
+export async function* streamOpenAI({ model, messages, system, onUsage, key }) {
+  const apiKey = key || getKey('openai');
+  if (!apiKey) throw new Error('No OpenAI API key. Open API Manager to add one.');
 
   const msgs = system
     ? [{ role: 'system', content: system }, ...messages]
@@ -35,7 +35,7 @@ export async function* streamOpenAI({ model, messages, system, onUsage }) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${key}`,
+      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,
