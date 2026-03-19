@@ -1146,3 +1146,127 @@ input, textarea, select {
   from { opacity: 0; transform: translateX(-50%) translateY(8px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+
+/* ─── API KEY MANAGER ─── */
+.key-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.key-paste-input {
+  flex: 1;
+  min-width: 0;
+}
+.key-add-btn {
+  flex-shrink: 0;
+  padding: 9px 16px;
+  background: var(--accent);
+  color: #000;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: opacity var(--ease);
+  white-space: nowrap;
+}
+.key-add-btn:hover { opacity: 0.88; }
+
+/* Disambiguation row */
+.key-disambig {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-glow-md);
+  border-radius: var(--r);
+  flex-wrap: wrap;
+}
+.key-disambig-label {
+  font-size: 12.5px;
+  color: var(--text-sec);
+  flex-shrink: 0;
+}
+.key-disambig-btns {
+  display: flex;
+  gap: 6px;
+}
+.key-disambig-opt {
+  padding: 5px 12px;
+  border: 1px solid var(--accent-dim);
+  border-radius: var(--pill);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--accent);
+  cursor: pointer;
+  transition: background var(--ease), color var(--ease);
+}
+.key-disambig-opt:hover {
+  background: var(--accent);
+  color: #000;
+}
+
+/* Key cards */
+.key-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+.key-group-header {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 10px 2px 4px;
+}
+.key-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+.key-card-info {
+  flex: 1;
+  overflow: hidden;
+}
+.key-card-provider {
+  font-size: 12.5px;
+  font-family: var(--mono);
+  color: var(--text-sec);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.key-card-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.key-card-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r);
+  font-size: 13px;
+  color: var(--text-sec);
+  border: 1px solid var(--border-soft);
+  background: var(--bg);
+  cursor: pointer;
+  transition: color var(--ease), border-color var(--ease);
+}
+.key-card-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+.key-card-del:hover {
+  color: var(--error);
+  border-color: var(--error);
+}
