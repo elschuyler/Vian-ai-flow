@@ -112,15 +112,54 @@ export function setSetting(key, value) {
   localStorage.setItem(`vian_${key}`, JSON.stringify(value));
 }
 
-export function getKey(provider) {
-  return localStorage.getItem(`vian_key_${provider}`) || '';
+// ─── Multi-key API key storage ────────────────────
+//
+// Keys are stored as a JSON array under vian_keys_{provider}.
+// On first read we migrate the old single-key format
+// (vian_key_{provider}) automatically so no keys are lost.
+
+export function getKeys(provider) {
+  try {
+    // Try new array format first
+    const raw = localStorage.getItem(`vian_keys_${provider}`);
+    if (raw !== null) return JSON.parse(raw);
+
+    // Migrate old single-key format if present
+    const legacy = localStorage.getItem(`vian_key_${provider}`);
+    if (legacy) {
+      const arr = [legacy];
+      localStorage.setItem(`vian_keys_${provider}`, JSON.stringify(arr));
+      localStorage.removeItem(`vian_key_${provider}`);
+      return arr;
+    }
+
+    return [];
+  } catch {
+    return [];
+  }
 }
 
-export function setKey(provider, value) {
-  if (value) {
-    localStorage.setItem(`vian_key_${provider}`, value);
-  } else {
+export function setKeys(provider, arr) {
+  try {
+    localStorage.setItem(`vian_keys_${provider}`, JSON.stringify(arr));
+    // Remove legacy key if it somehow still exists
     localStorage.removeItem(`vian_key_${provider}`);
+  } catch {}
+}
+
+// Compatibility shim — everything that calls getKey() keeps working
+export function getKey(provider) {
+  return getKeys(provider)[0] || '';
+}
+
+// Legacy setKey kept so nothing else breaks
+export function setKey(provider, value) {
+  const arr = getKeys(provider);
+  if (value) {
+    if (!arr.includes(value)) arr.unshift(value);
+    setKeys(provider, arr);
+  } else {
+    setKeys(provider, []);
   }
 }
 
