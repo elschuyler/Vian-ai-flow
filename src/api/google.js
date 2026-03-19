@@ -1,6 +1,11 @@
 // src/api/google.js
 // Fixed version: single streaming request, token usage extracted from final chunk
 
+export const GOOGLE_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-2.5-pro-exp-03-25',
+];
+
 /**
  * Calls Google Gemini API with streaming support.
  * @param {Array} messages - Conversation history (role/content)
@@ -10,7 +15,7 @@
  * @param {function} onChunk - Callback for each stream chunk
  * @param {function} onComplete - Callback with final token usage
  */
-export async function callGemini(messages, contextBlocks, model, apiKey, onChunk, onComplete) {
+export async function streamGoogle(messages, contextBlocks, model, apiKey, onChunk, onComplete) {
   // 1. Prepare the request payload
   const systemPrompt = buildSystemPrompt(contextBlocks);
   const geminiMessages = convertToGeminiFormat(messages, systemPrompt);
@@ -128,4 +133,4 @@ function convertToGeminiFormat(messages, systemPrompt) {
   }
 
   return contents;
-    }
+}
