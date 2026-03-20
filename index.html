@@ -80,6 +80,7 @@
     <div id="chat-history-list" class="chat-history-list" aria-label="Chat history"></div>
   </nav>
 
+  <!-- ═══ TOP BAR ═══ -->
   <header class="top-bar" role="banner">
     <button id="hamburger" class="icon-btn" aria-label="Open sidebar" aria-expanded="false">
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -88,7 +89,21 @@
         <rect y="14" width="18" height="2" rx="1" fill="currentColor"/>
       </svg>
     </button>
-    <select id="model-selector" class="model-selector" aria-label="Select AI model"></select>
+
+    <!-- Combo input: type freely or pick from datalist suggestions -->
+    <input
+      id="model-input"
+      class="model-combo"
+      list="model-list"
+      placeholder="Model…"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
+      aria-label="Select or type AI model"
+    />
+    <datalist id="model-list"></datalist>
+
     <button id="context-btn" class="icon-btn context-icon-btn" aria-label="Open context panel" aria-expanded="false">
       <span id="context-dot" class="context-dot hidden" aria-hidden="true"></span>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -141,15 +156,14 @@
         <button class="modal-close icon-btn" data-modal="modal-api" aria-label="Close">✕</button>
       </div>
       <div class="modal-body">
-        <p class="modal-note">Keys are stored on your device only. They go directly to the provider — no relay, no proxy, no tracking.</p>
+        <p class="modal-note">Keys stored on device only. For Ollama paste your base URL (e.g. http://localhost:11434).</p>
 
-        <!-- Paste + Add -->
         <div class="key-add-row">
           <input
             type="password"
             id="key-paste-input"
             class="key-input key-paste-input"
-            placeholder="Paste API key…"
+            placeholder="Paste API key or Ollama URL…"
             autocomplete="off"
             autocorrect="off"
             spellcheck="false"
@@ -157,7 +171,7 @@
           <button id="btn-add-key" class="key-add-btn">Add</button>
         </div>
 
-        <!-- Disambiguation row — visible only when key is ambiguous (sk- prefix) -->
+        <!-- Disambiguation — shown for ambiguous sk- keys -->
         <div id="key-disambig" class="key-disambig hidden" aria-live="polite">
           <span class="key-disambig-label">Which provider?</span>
           <div class="key-disambig-btns">
@@ -166,7 +180,6 @@
           </div>
         </div>
 
-        <!-- Saved key cards -->
         <div id="key-cards-list" class="key-cards-list" aria-label="Saved API keys"></div>
       </div>
     </div>
