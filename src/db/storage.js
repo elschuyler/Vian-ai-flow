@@ -3,12 +3,12 @@
 
 // ═══════════════════════════════════════════
 // VIAN AI FLOW — Storage Layer
-// IndexedDB : conversations, context blocks
+// IndexedDB : conversations, context blocks, projects
 // localStorage : API keys, settings
 // ═══════════════════════════════════════════
 
 const DB_NAME    = 'vian-ai-flow';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // bumped from 1 → added projects store
 
 let db = null;
 
@@ -18,13 +18,30 @@ export async function initDB() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
 
     req.onupgradeneeded = (e) => {
-      const d = e.target.result;
+      const d       = e.target.result;
+      const oldVer  = e.oldVersion;
+
+      // v1 stores — create if fresh install
       if (!d.objectStoreNames.contains('conversations')) {
         const s = d.createObjectStore('conversations', { keyPath: 'id' });
-        s.createIndex('updatedAt', 'updatedAt', { unique: false });
+        s.createIndex('updatedAt',  'updatedAt',  { unique: false });
+        s.createIndex('projectId',  'projectId',  { unique: false });
+      } else if (oldVer < 2) {
+        // Add projectId index to existing conversations store
+        const tx = e.target.transaction;
+        const convStore = tx.objectStore('conversations');
+        if (!convStore.indexNames.contains('projectId')) {
+          convStore.createIndex('projectId', 'projectId', { unique: false });
+        }
       }
+
       if (!d.objectStoreNames.contains('context_blocks')) {
         d.createObjectStore('context_blocks', { keyPath: 'id' });
+      }
+
+      // v2 — projects store
+      if (!d.objectStoreNames.contains('projects')) {
+        d.createObjectStore('projects', { keyPath: 'id' });
       }
     };
 
@@ -55,6 +72,14 @@ export async function getAllConversations() {
   });
 }
 
+export async function getConversationsByProject(projectId) {
+  return new Promise((resolve, reject) => {
+    const req = store('conversations').index('projectId').getAll(projectId);
+    req.onsuccess = () => resolve((req.result || []).sort((a, b) => b.updatedAt - a.updatedAt));
+    req.onerror   = () => reject(req.error);
+  });
+}
+
 export async function getConversation(id) {
   return new Promise((resolve, reject) => {
     const req = store('conversations').get(id);
@@ -68,6 +93,32 @@ export async function deleteConversation(id) {
     const req = store('conversations', 'readwrite').delete(id);
     req.onsuccess = () => resolve();
     req.onerror   = () => reject(req.error);
+  });
+}
+
+// Assign all conversations that have no projectId to the default project
+export async function migrateConversationsToProject(projectId) {
+  return new Promise((resolve, reject) => {
+    const tx       = db.transaction('conversations', 'readwrite');
+    const objStore = tx.objectStore('conversations');
+    const req      = objStore.getAll();
+
+    req.onsuccess = () => {
+      const convs   = req.result || [];
+      let   pending = 0;
+
+      const orphans = convs.filter(c => !c.projectId);
+      if (!orphans.length) { resolve(); return; }
+
+      orphans.forEach(conv => {
+        pending++;
+        conv.projectId = projectId;
+        const put = objStore.put(conv);
+        put.onsuccess = () => { if (--pending === 0) resolve(); };
+        put.onerror   = () => reject(put.error);
+      });
+    };
+    req.onerror = () => reject(req.error);
   });
 }
 
@@ -92,6 +143,40 @@ export async function getAllContextBlocks() {
 export async function deleteContextBlock(id) {
   return new Promise((resolve, reject) => {
     const req = store('context_blocks', 'readwrite').delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+// ─── Projects ─────────────────────────────────────
+
+export async function saveProject(project) {
+  return new Promise((resolve, reject) => {
+    const req = store('projects', 'readwrite').put(project);
+    req.onsuccess = () => resolve();
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+export async function getAllProjects() {
+  return new Promise((resolve, reject) => {
+    const req = store('projects').getAll();
+    req.onsuccess = () => resolve((req.result || []).sort((a, b) => a.createdAt - b.createdAt));
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+export async function getProject(id) {
+  return new Promise((resolve, reject) => {
+    const req = store('projects').get(id);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+export async function deleteProject(id) {
+  return new Promise((resolve, reject) => {
+    const req = store('projects', 'readwrite').delete(id);
     req.onsuccess = () => resolve();
     req.onerror   = () => reject(req.error);
   });
@@ -136,7 +221,6 @@ export function getKeys(provider) {
     const raw = localStorage.getItem(`vian_keys_${provider}`);
     if (raw !== null) return JSON.parse(raw);
 
-    // Migrate old single-key format
     const legacy = localStorage.getItem(`vian_key_${provider}`);
     if (legacy) {
       const arr = [legacy];
@@ -158,7 +242,6 @@ export function setKeys(provider, arr) {
   } catch {}
 }
 
-// Compatibility shim
 export function getKey(provider) {
   return getKeys(provider)[0] || '';
 }
