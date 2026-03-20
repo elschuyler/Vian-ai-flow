@@ -393,25 +393,23 @@ input, textarea, select {
 }
 .icon-btn:focus-visible { outline: 1px solid var(--accent-dim); }
 
-.model-selector {
+.model-combo {
   flex: 1;
   height: 36px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-soft);
   border-radius: var(--r);
   color: var(--text);
-  padding: 0 28px 0 10px;
+  padding: 0 10px;
   font-size: 13px;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
+  cursor: text;
   transition: border-color var(--ease);
+  /* Remove default input chrome on mobile */
+  -webkit-appearance: none;
+  appearance: none;
 }
-.model-selector:focus { border-color: var(--accent-dim); outline: none; }
-.model-selector option, .model-selector optgroup { background: var(--bg-elevated); color: var(--text); }
+.model-combo:focus { border-color: var(--accent-dim); outline: none; }
+.model-combo::placeholder { color: var(--text-sec); }
 
 .context-icon-btn { position: relative; }
 .context-dot {

@@ -12,6 +12,7 @@ import {
   getSetting, setSetting,
   getKey, getKeys, setKeys,
   generateId,
+  ALL_PROVIDERS, PROVIDER_LABELS,
 } from './db/storage.js';
 
 import { ALL_MODELS, streamMessage } from './api/index.js';
@@ -53,30 +54,21 @@ When the user asks you to create a ZIP file or bundle files for download, respon
 const TOOL_PREVIEW = `HTML PREVIEW:
 [PREVIEW] block support is coming in a future update and is not yet active. Do not use [PREVIEW] blocks.`;
 
-// ─── Provider labels ─────────────────────────────────────────
-
-const PROVIDER_LABELS = {
-  anthropic: 'Anthropic',
-  openai:    'OpenAI',
-  google:    'Google',
-  deepseek:  'DeepSeek',
-};
-
-const ALL_PROVIDERS = ['anthropic', 'openai', 'google', 'deepseek'];
-
 // ─── Key prefix detection ─────────────────────────────────────
-// Returns: provider string | 'ambiguous' | null
 
 function detectProvider(key) {
   const k = key.trim();
-  if (k.startsWith('sk-ant-'))  return 'anthropic';
-  if (k.startsWith('AIza'))     return 'google';
-  if (k.startsWith('sk-'))      return 'ambiguous'; // OpenAI or DeepSeek
-  return null; // unrecognised
+  if (k.startsWith('http://') || k.startsWith('https://')) return 'ollama';
+  if (k.startsWith('sk-ant-'))   return 'anthropic';
+  if (k.startsWith('AIza'))      return 'google';
+  if (k.startsWith('gsk_'))      return 'groq';
+  if (k.startsWith('sk-or-'))    return 'openrouter';
+  if (k.startsWith('sk-'))       return 'ambiguous'; // OpenAI or DeepSeek
+  return null;
 }
 
-// Mask a key for display: show first 8 + last 4, rest as •
 function maskKey(key) {
+  if (key.startsWith('http')) return key; // show Ollama URL in full
   if (key.length <= 12) return '••••••••';
   return key.slice(0, 8) + '••••••••' + key.slice(-4);
 }
@@ -96,13 +88,13 @@ function setToolEnabled(key, val) {
 
 // ─── State ───────────────────────────────────────────────────
 
-let currentConvId   = null;
-let currentMsgs     = [];
-let contextBlocks   = [];
-let isStreaming      = false;
-let sandboxWorker   = null;
-let pendingScripts  = {};
-let pendingKey      = null; // key waiting for disambiguation
+let currentConvId  = null;
+let currentMsgs    = [];
+let contextBlocks  = [];
+let isStreaming     = false;
+let sandboxWorker  = null;
+let pendingScripts = {};
+let pendingKey     = null;
 
 // ─── DOM refs ────────────────────────────────────────────────
 
@@ -113,7 +105,8 @@ const els = {
   overlay:        $('sidebar-overlay'),
   hamburger:      $('hamburger'),
   sidebarClose:   $('sidebar-close'),
-  modelSel:       $('model-selector'),
+  modelInput:     $('model-input'),
+  modelList:      $('model-list'),
   ctxBtn:         $('context-btn'),
   ctxDot:         $('context-dot'),
   ctxPanel:       $('context-panel'),
@@ -200,56 +193,42 @@ function applyTheme() {
   if (els.themeToggle) els.themeToggle.value = theme;
 }
 
-// ─── Model Selector ──────────────────────────────────────────
+// ─── Model Selector (combo input + datalist) ──────────────────
 
 function buildModelSelector() {
-  const groups   = {};
-  const saved    = getSetting('model', ALL_MODELS[0].id);
-  let   hasAny   = false;
-  let   hasSaved = false;
-
+  // Populate datalist with known models for providers that have keys
+  els.modelList.innerHTML = '';
   for (const m of ALL_MODELS) {
     if (!getKey(m.provider)) continue;
-    hasAny = true;
-    if (m.id === saved) hasSaved = true;
-    (groups[m.group] = groups[m.group] || []).push(m);
+    const opt   = document.createElement('option');
+    opt.value   = m.id;
+    opt.label   = `${m.group}: ${m.label}`;
+    els.modelList.appendChild(opt);
   }
 
-  els.modelSel.innerHTML = '';
-
-  if (!hasAny) {
-    const opt       = document.createElement('option');
-    opt.value       = '';
-    opt.textContent = 'No keys saved — open API Manager';
-    opt.disabled    = true;
-    opt.selected    = true;
-    els.modelSel.appendChild(opt);
-    return;
+  // Restore saved model value
+  const saved = getSetting('model', '');
+  if (saved) {
+    els.modelInput.value = saved;
+  } else {
+    // Default to first available model
+    const first = ALL_MODELS.find(m => getKey(m.provider));
+    if (first) els.modelInput.value = first.id;
   }
 
-  for (const [grp, models] of Object.entries(groups)) {
-    const og = document.createElement('optgroup');
-    og.label = grp;
-    for (const m of models) {
-      const opt       = document.createElement('option');
-      opt.value       = m.id;
-      opt.textContent = m.label;
-      og.appendChild(opt);
-    }
-    els.modelSel.appendChild(og);
-  }
-
-  els.modelSel.value = hasSaved ? saved : ALL_MODELS.find(m => getKey(m.provider))?.id || '';
+  // Placeholder hint based on whether any keys are saved
+  const hasAny = ALL_PROVIDERS.some(p => getKey(p));
+  els.modelInput.placeholder = hasAny ? 'Model…' : 'Add a key first…';
 }
 
 // ─── Settings ────────────────────────────────────────────────
 
 function loadSettings() {
   els.autorunToggle.checked = getSetting('autorun', true);
-  if (els.themeToggle) els.themeToggle.value = getSetting('theme', 'dark');
-  if (els.toolFetch)   els.toolFetch.checked   = getToolEnabled('fetch');
-  if (els.toolZip)     els.toolZip.checked     = getToolEnabled('zip');
-  if (els.toolPreview) els.toolPreview.checked = getToolEnabled('preview');
+  if (els.themeToggle)  els.themeToggle.value    = getSetting('theme', 'dark');
+  if (els.toolFetch)    els.toolFetch.checked    = getToolEnabled('fetch');
+  if (els.toolZip)      els.toolZip.checked      = getToolEnabled('zip');
+  if (els.toolPreview)  els.toolPreview.checked  = getToolEnabled('preview');
 }
 
 // ─── Context Blocks ──────────────────────────────────────────
@@ -340,7 +319,6 @@ function buildSystemPrompt() {
 
 function renderKeyCards() {
   els.keyCardsList.innerHTML = '';
-
   let anyKeys = false;
 
   for (const provider of ALL_PROVIDERS) {
@@ -348,7 +326,6 @@ function renderKeyCards() {
     if (!keys.length) continue;
     anyKeys = true;
 
-    // Provider group header
     const header = document.createElement('div');
     header.className = 'key-group-header';
     header.textContent = PROVIDER_LABELS[provider];
@@ -359,16 +336,16 @@ function renderKeyCards() {
       card.className = 'key-card';
       card.innerHTML = `
         <div class="key-card-info">
-          <span class="key-card-provider">${idx === 0 ? '★ ' : ''}${maskKey(key)}</span>
+          <span class="key-card-provider">${idx === 0 ? '★ ' : ''}${esc(maskKey(key))}</span>
         </div>
         <div class="key-card-actions">
           ${idx > 0
-            ? `<button class="key-card-btn" data-action="up" data-provider="${provider}" data-idx="${idx}" title="Move up" aria-label="Move up">↑</button>`
+            ? `<button class="key-card-btn" data-action="up" data-provider="${provider}" data-idx="${idx}" title="Move up">↑</button>`
             : ''}
           ${idx < keys.length - 1
-            ? `<button class="key-card-btn" data-action="down" data-provider="${provider}" data-idx="${idx}" title="Move down" aria-label="Move down">↓</button>`
+            ? `<button class="key-card-btn" data-action="down" data-provider="${provider}" data-idx="${idx}" title="Move down">↓</button>`
             : ''}
-          <button class="key-card-btn key-card-del" data-action="delete" data-provider="${provider}" data-idx="${idx}" title="Remove" aria-label="Remove key">✕</button>
+          <button class="key-card-btn key-card-del" data-action="delete" data-provider="${provider}" data-idx="${idx}" title="Remove">✕</button>
         </div>`;
       els.keyCardsList.appendChild(card);
     });
@@ -408,13 +385,11 @@ function handleAddKey() {
   }
 
   if (detected === 'ambiguous') {
-    // Store key temporarily and show disambiguation buttons
     pendingKey = raw;
     els.keyDisambig.classList.remove('hidden');
     return;
   }
 
-  // Known provider — commit immediately
   hideDisambig();
   commitKey(detected, raw);
 }
@@ -506,9 +481,9 @@ async function sendMessage() {
   const rawText = els.input.value.trim();
   if (!rawText) return;
 
-  const model = els.modelSel.value;
-  if (!model) {
-    showToast('Add an API key first — open API Manager in the sidebar.');
+  const modelId = els.modelInput.value.trim();
+  if (!modelId) {
+    showToast('Enter a model name or add a key first.');
     return;
   }
 
@@ -531,8 +506,8 @@ async function doStream() {
   els.typing.classList.remove('hidden');
   scrollDown();
 
-  const model  = els.modelSel.value;
-  const system = buildSystemPrompt();
+  const modelId = els.modelInput.value.trim();
+  const system  = buildSystemPrompt();
 
   const row    = document.createElement('div');
   row.className = 'msg-row assistant';
@@ -547,7 +522,7 @@ async function doStream() {
 
   try {
     for await (const chunk of streamMessage({
-      modelId: model,
+      modelId,
       messages: currentMsgs,
       system,
       onUsage: (u) => { usage = u; },
@@ -568,7 +543,7 @@ async function doStream() {
       row.appendChild(meta);
     }
 
-    currentMsgs.push({ role: 'assistant', content: fullText, model, usage });
+    currentMsgs.push({ role: 'assistant', content: fullText, model: modelId, usage });
 
   } catch (err) {
     bubble.innerHTML = `<span style="color:var(--error)">⚠ ${esc(err.message)}</span>`;
@@ -614,7 +589,6 @@ async function handleFetchBlocks(fullText, bubble) {
     }
 
     result = result.replace(m[0], `[Fetched: ${originalUrl}]`);
-
     currentMsgs.push({
       role: 'user',
       content: `[SYSTEM: Content fetched from ${originalUrl}]\n\n${fetched}\n\n[END FETCH]\n\nPlease continue your response using the above content.`,
@@ -981,26 +955,31 @@ function bindEvents() {
     });
   });
 
-  // Add key button
-  els.btnAddKey.addEventListener('click', handleAddKey);
+  // Save model choice whenever input changes
+  els.modelInput.addEventListener('change', () => {
+    setSetting('model', els.modelInput.value.trim());
+  });
+  els.modelInput.addEventListener('blur', () => {
+    setSetting('model', els.modelInput.value.trim());
+  });
 
-  // Also trigger add on Enter in the paste input
+  // Add key
+  els.btnAddKey.addEventListener('click', handleAddKey);
   els.keyPasteInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); handleAddKey(); }
   });
 
-  // Disambiguation buttons
+  // Disambiguation
   els.keyDisambig.querySelectorAll('.key-disambig-opt').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!pendingKey) return;
-      const provider = btn.dataset.provider;
-      const key      = pendingKey;
+      const key = pendingKey;
       hideDisambig();
-      commitKey(provider, key);
+      commitKey(btn.dataset.provider, key);
     });
   });
 
-  // Key card actions (delete / move up / move down) — delegated
+  // Key card actions — delegated
   els.keyCardsList.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
@@ -1056,19 +1035,9 @@ function bindEvents() {
     });
   }
 
-  els.modelSel.addEventListener('change', () => {
-    setSetting('model', els.modelSel.value);
-  });
-
-  if (els.toolFetch) {
-    els.toolFetch.addEventListener('change', () => setToolEnabled('fetch', els.toolFetch.checked));
-  }
-  if (els.toolZip) {
-    els.toolZip.addEventListener('change', () => setToolEnabled('zip', els.toolZip.checked));
-  }
-  if (els.toolPreview) {
-    els.toolPreview.addEventListener('change', () => setToolEnabled('preview', els.toolPreview.checked));
-  }
+  if (els.toolFetch)   els.toolFetch.addEventListener('change',   () => setToolEnabled('fetch',   els.toolFetch.checked));
+  if (els.toolZip)     els.toolZip.addEventListener('change',     () => setToolEnabled('zip',     els.toolZip.checked));
+  if (els.toolPreview) els.toolPreview.addEventListener('change', () => setToolEnabled('preview', els.toolPreview.checked));
 
   els.sendBtn.addEventListener('click', sendMessage);
 
