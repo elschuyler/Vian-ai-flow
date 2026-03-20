@@ -112,19 +112,31 @@ export function setSetting(key, value) {
   localStorage.setItem(`vian_${key}`, JSON.stringify(value));
 }
 
+// ─── Provider registry ────────────────────────────
+
+export const ALL_PROVIDERS = [
+  'anthropic', 'openai', 'google', 'deepseek',
+  'openrouter', 'groq', 'ollama',
+];
+
+export const PROVIDER_LABELS = {
+  anthropic:  'Anthropic',
+  openai:     'OpenAI',
+  google:     'Google',
+  deepseek:   'DeepSeek',
+  openrouter: 'OpenRouter',
+  groq:       'Groq',
+  ollama:     'Ollama (local)',
+};
+
 // ─── Multi-key API key storage ────────────────────
-//
-// Keys are stored as a JSON array under vian_keys_{provider}.
-// On first read we migrate the old single-key format
-// (vian_key_{provider}) automatically so no keys are lost.
 
 export function getKeys(provider) {
   try {
-    // Try new array format first
     const raw = localStorage.getItem(`vian_keys_${provider}`);
     if (raw !== null) return JSON.parse(raw);
 
-    // Migrate old single-key format if present
+    // Migrate old single-key format
     const legacy = localStorage.getItem(`vian_key_${provider}`);
     if (legacy) {
       const arr = [legacy];
@@ -142,17 +154,15 @@ export function getKeys(provider) {
 export function setKeys(provider, arr) {
   try {
     localStorage.setItem(`vian_keys_${provider}`, JSON.stringify(arr));
-    // Remove legacy key if it somehow still exists
     localStorage.removeItem(`vian_key_${provider}`);
   } catch {}
 }
 
-// Compatibility shim — everything that calls getKey() keeps working
+// Compatibility shim
 export function getKey(provider) {
   return getKeys(provider)[0] || '';
 }
 
-// Legacy setKey kept so nothing else breaks
 export function setKey(provider, value) {
   const arr = getKeys(provider);
   if (value) {
