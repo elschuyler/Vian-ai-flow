@@ -1486,3 +1486,258 @@ input, textarea, select {
   background: #fff;
   display: block;
 }
+
+/* ─── STOP BUTTON ─── */
+.stop-btn {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--error);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: opacity var(--ease), transform var(--ease);
+}
+.stop-btn:hover { opacity: 0.85; transform: scale(1.05); }
+
+/* ─── AGENT CONFIRM BANNER ─── */
+.agent-confirm-banner {
+  position: fixed;
+  bottom: calc(var(--input-h) + 8px);
+  left: 12px; right: 12px;
+  z-index: 400;
+  background: var(--modal-bg);
+  border: 1px solid var(--accent-dim);
+  border-radius: var(--r-lg);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  overflow: hidden;
+}
+.agent-confirm-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+}
+.agent-confirm-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.agent-confirm-body { flex: 1; overflow: hidden; }
+.agent-confirm-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.agent-confirm-desc {
+  font-size: 13px;
+  color: var(--text);
+  margin-top: 2px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+.agent-confirm-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.agent-confirm-btn {
+  padding: 6px 14px;
+  border-radius: var(--pill);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--ease);
+  border: 1px solid transparent;
+}
+.agent-confirm-btn.accept {
+  background: var(--accent);
+  color: #000;
+}
+.agent-confirm-btn.skip {
+  background: transparent;
+  color: var(--text-sec);
+  border-color: var(--border-soft);
+}
+.agent-confirm-btn:hover { opacity: 0.82; }
+
+/* ─── AGENT LOG PANEL ─── */
+.agent-log-panel {
+  margin: 6px 14px;
+  border: 1px solid var(--accent-glow-md);
+  border-radius: var(--r-lg);
+  background: var(--accent-glow);
+  overflow: hidden;
+}
+.agent-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--accent-glow-md);
+  gap: 10px;
+}
+.agent-log-title {
+  font-size: 12px;
+  color: var(--accent);
+  font-family: var(--mono);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-log-status {
+  font-size: 11px;
+  color: var(--text-sec);
+  flex-shrink: 0;
+  font-family: var(--mono);
+}
+.agent-log-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+/* ─── AGENT STEP ITEMS ─── */
+.agent-step-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.agent-step-item:last-child { border-bottom: none; }
+.agent-step-num {
+  font-size: 10px;
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--accent-dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.agent-step-text {
+  color: var(--text);
+  line-height: 1.55;
+}
+.agent-step-text p { margin-bottom: 0.4em; }
+.agent-step-text p:last-child { margin-bottom: 0; }
+
+/* ─── AGENT STEP ROWS (inline mode) ─── */
+.agent-step-row .agent-step-item {
+  border: 1px solid var(--accent-glow-md);
+  border-radius: var(--r);
+  background: var(--accent-glow);
+  padding: 8px 12px;
+}
+
+/* ─── AGENT FILE BADGE ─── */
+.agent-file-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-family: var(--mono);
+  color: var(--accent);
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-glow-md);
+  border-radius: var(--pill);
+  padding: 1px 7px;
+  margin-top: 4px;
+  margin-right: 4px;
+}
+
+/* ─── AGENT REPORT MESSAGE ─── */
+.agent-report .msg-bubble {
+  max-width: min(92%, 720px);
+}
+.agent-report-bubble {
+  border-radius: var(--r-lg);
+  border: 2px solid;
+  overflow: hidden;
+  padding: 0 !important;
+}
+.agent-report-done   .agent-report-bubble { border-color: var(--green-dim);  background: var(--green-glow); }
+.agent-report-limit  .agent-report-bubble { border-color: var(--accent-dim); background: var(--accent-glow); }
+.agent-report-stopped .agent-report-bubble { border-color: var(--border-soft); background: var(--bg-elevated); }
+.agent-report-error  .agent-report-bubble { border-color: var(--error);      background: rgba(255,112,112,0.07); }
+
+.agent-report-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px 7px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.agent-report-icon  { font-size: 16px; }
+.agent-report-title { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
+.agent-report-usage { font-size: 10px; font-family: var(--mono); color: var(--text-dim); }
+.agent-report-summary {
+  padding: 10px 14px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--text);
+}
+.agent-report-summary p { margin-bottom: 0.5em; }
+.agent-report-summary p:last-child { margin-bottom: 0; }
+
+/* ─── BACKGROUND TASKS (sidebar scaffold) ─── */
+.bg-tasks-list {
+  padding: 4px 10px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.bg-tasks-empty {
+  padding: 10px 6px;
+  font-size: 12px;
+  color: var(--text-sec);
+  text-align: center;
+  line-height: 1.55;
+}
+.bg-tasks-note {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* ─── MERCENARY SECTION (API Manager) ─── */
+.mercenary-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mercenary-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sec);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.mercenary-provider {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+
+/* ─── AGENT SETTINGS ─── */
+.setting-number {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r);
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 13px;
+  width: 64px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.setting-number:focus { border-color: var(--accent-dim); outline: none; }
