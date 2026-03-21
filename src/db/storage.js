@@ -3,12 +3,12 @@
 
 // ═══════════════════════════════════════════
 // VIAN AI FLOW — Storage Layer
-// IndexedDB : conversations, context blocks, projects
-// localStorage : API keys, settings
+// IndexedDB : conversations, context blocks, projects, agent_tasks
+// localStorage : API keys, settings, mercenary credentials
 // ═══════════════════════════════════════════
 
 const DB_NAME    = 'vian-ai-flow';
-const DB_VERSION = 2; // bumped from 1 → added projects store
+const DB_VERSION = 3; // v3 adds agent_tasks store
 
 let db = null;
 
@@ -18,20 +18,19 @@ export async function initDB() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
 
     req.onupgradeneeded = (e) => {
-      const d       = e.target.result;
-      const oldVer  = e.oldVersion;
+      const d      = e.target.result;
+      const oldVer = e.oldVersion;
 
-      // v1 stores — create if fresh install
+      // ── v1 stores ──────────────────────────────────────────
       if (!d.objectStoreNames.contains('conversations')) {
         const s = d.createObjectStore('conversations', { keyPath: 'id' });
-        s.createIndex('updatedAt',  'updatedAt',  { unique: false });
-        s.createIndex('projectId',  'projectId',  { unique: false });
+        s.createIndex('updatedAt', 'updatedAt', { unique: false });
+        s.createIndex('projectId', 'projectId', { unique: false });
       } else if (oldVer < 2) {
-        // Add projectId index to existing conversations store
         const tx = e.target.transaction;
-        const convStore = tx.objectStore('conversations');
-        if (!convStore.indexNames.contains('projectId')) {
-          convStore.createIndex('projectId', 'projectId', { unique: false });
+        const cs = tx.objectStore('conversations');
+        if (!cs.indexNames.contains('projectId')) {
+          cs.createIndex('projectId', 'projectId', { unique: false });
         }
       }
 
@@ -39,9 +38,17 @@ export async function initDB() {
         d.createObjectStore('context_blocks', { keyPath: 'id' });
       }
 
-      // v2 — projects store
+      // ── v2 stores ──────────────────────────────────────────
       if (!d.objectStoreNames.contains('projects')) {
         d.createObjectStore('projects', { keyPath: 'id' });
+      }
+
+      // ── v3 stores ──────────────────────────────────────────
+      if (!d.objectStoreNames.contains('agent_tasks')) {
+        const at = d.createObjectStore('agent_tasks', { keyPath: 'id' });
+        at.createIndex('projectId',  'projectId',  { unique: false });
+        at.createIndex('createdAt',  'createdAt',  { unique: false });
+        at.createIndex('status',     'status',     { unique: false });
       }
     };
 
@@ -96,22 +103,16 @@ export async function deleteConversation(id) {
   });
 }
 
-// Assign all conversations that have no projectId to the default project
 export async function migrateConversationsToProject(projectId) {
   return new Promise((resolve, reject) => {
     const tx       = db.transaction('conversations', 'readwrite');
     const objStore = tx.objectStore('conversations');
     const req      = objStore.getAll();
-
-    req.onsuccess = () => {
-      const convs   = req.result || [];
-      let   pending = 0;
-
-      const orphans = convs.filter(c => !c.projectId);
+    req.onsuccess  = () => {
+      const orphans = (req.result || []).filter(c => !c.projectId);
       if (!orphans.length) { resolve(); return; }
-
+      let pending = orphans.length;
       orphans.forEach(conv => {
-        pending++;
         conv.projectId = projectId;
         const put = objStore.put(conv);
         put.onsuccess = () => { if (--pending === 0) resolve(); };
@@ -182,6 +183,51 @@ export async function deleteProject(id) {
   });
 }
 
+// ─── Agent Tasks ──────────────────────────────────
+//
+// task shape:
+// {
+//   id, projectId, convId,
+//   type: 'soldier' | 'mercenary',
+//   goal,
+//   status: 'running' | 'done' | 'stopped' | 'error' | 'limit',
+//   steps: [ { role, content, ts } ],
+//   stepCount, stepLimit,
+//   createdAt, updatedAt,
+// }
+
+export async function saveAgentTask(task) {
+  return new Promise((resolve, reject) => {
+    const req = store('agent_tasks', 'readwrite').put(task);
+    req.onsuccess = () => resolve();
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+export async function getAgentTask(id) {
+  return new Promise((resolve, reject) => {
+    const req = store('agent_tasks').get(id);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+export async function getAgentTasksByProject(projectId) {
+  return new Promise((resolve, reject) => {
+    const req = store('agent_tasks').index('projectId').getAll(projectId);
+    req.onsuccess = () => resolve((req.result || []).sort((a, b) => b.createdAt - a.createdAt));
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+export async function deleteAgentTask(id) {
+  return new Promise((resolve, reject) => {
+    const req = store('agent_tasks', 'readwrite').delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror   = () => reject(req.error);
+  });
+}
+
 // ─── localStorage helpers ─────────────────────────
 
 export function getSetting(key, fallback = null) {
@@ -220,7 +266,6 @@ export function getKeys(provider) {
   try {
     const raw = localStorage.getItem(`vian_keys_${provider}`);
     if (raw !== null) return JSON.parse(raw);
-
     const legacy = localStorage.getItem(`vian_key_${provider}`);
     if (legacy) {
       const arr = [legacy];
@@ -228,11 +273,8 @@ export function getKeys(provider) {
       localStorage.removeItem(`vian_key_${provider}`);
       return arr;
     }
-
     return [];
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
 export function setKeys(provider, arr) {
@@ -254,6 +296,36 @@ export function setKey(provider, value) {
   } else {
     setKeys(provider, []);
   }
+}
+
+// ─── Mercenary credentials ────────────────────────
+//
+// Stored in plain localStorage for now.
+// Will be encrypted with Web Crypto AES-GCM when Mercenary is wired up.
+//
+// GitHub: { pat, repo }
+// Cloudflare: { workerUrl, apiToken }
+
+export function getMercenaryCredential(type) {
+  // type: 'github' | 'cloudflare'
+  try {
+    const raw = localStorage.getItem(`vian_mercenary_${type}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+export function setMercenaryCredential(type, value) {
+  try {
+    if (value) {
+      localStorage.setItem(`vian_mercenary_${type}`, JSON.stringify(value));
+    } else {
+      localStorage.removeItem(`vian_mercenary_${type}`);
+    }
+  } catch {}
+}
+
+export function clearMercenaryCredential(type) {
+  try { localStorage.removeItem(`vian_mercenary_${type}`); } catch {}
 }
 
 // ─── ID generator ─────────────────────────────────
