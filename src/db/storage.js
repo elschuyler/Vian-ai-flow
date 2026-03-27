@@ -38,7 +38,7 @@ async function initDB() {
             repoUrl: '',
             createdAt: Date.now(),
             updatedAt: Date.now(),
-            lastConvId: null // Will be set later if migrating
+: null // Will be set later if migrating
           };
           projectsOS.add(projectData);
         }
@@ -143,7 +143,7 @@ async function getKeys(provider) {
     }
   } else if (legacyKey) {
     // Migration needed: convert single key to array format
-    console.log(`Migrating legacy key for ${provider}`);
+    console.log(`M for ${provider}`);
     const newKeysArray = [legacyKey];
     localStorage.setItem(`${KEY_STORAGE_PREFIX}${provider}`, JSON.stringify(newKeysArray));
     localStorage.removeItem(`vian_key_${provider}`); // Remove old key
@@ -222,16 +222,160 @@ async function getConversationsByProject(projectId) {
 }
 
 // --- Project Management ---
-// ... (existing project functions remain unchanged) ...
+// Project CRUD functions
+async function createProject(name, systemPrompt = '', repoUrl = '') {
+  const db = await initDB();
+  const project = {
+    id: `proj_${Date.now()}`, // Simple ID generation
+    name,
+    systemPrompt,
+    repoUrl,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    lastConvId: null // Initially no conversation loaded
+  };
+  await db.put(STORES.projects, project);
+  return project;
+}
+
+async function loadProject(id) {
+  const db = await initDB();
+  return await db.get(STORES.projects, id);
+}
+
+async function updateProject(project) {
+  const db = await initDB();
+  project.updatedAt = Date.now();
+  await db.put(STORES.projects, project);
+}
+
+async function deleteProject(id) {
+  const db = await initDB();
+  // Load the project to get associated conversations
+  const project = await loadProject(id);
+  if (project) {
+    // Delete all conversations belonging to this project
+    const conversationsToDelete = await getConversationsByProject(id);
+    const tx = db.transaction(STORES.conversations, 'readwrite');
+    for (const conv of conversationsToDelete) {
+      await tx.store.delete(conv.id);
+    }
+    await tx.done;
+
+    // Delete the project itself
+    await db.delete(STORES.projects, id);
+  }
+}
+
+async function listProjects() {
+  const db = await initDB();
+  return await db.getAll(STORES.projects);
+}
+
+async function getProjectCount() {
+  const db = await initDB();
+  return await db.count(STORES.projects);
+}
 
 // --- Context Block Management ---
-// ... (existing context block functions remain unchanged) ...
+async function saveContextBlock(block) {
+  const db = await initDB();
+  const tx = db.transaction(STORES.context_blocks, 'readwrite');
+  await tx.store.put(block);
+  await tx.done;
+}
 
-// --- Agent Task Management ---
-// ... (existing agent task functions remain unchanged) ...
+async function loadContextBlock(id) {
+  const db = await initDB();
+  return await db.get(STORES.context_blocks, id);
+}
 
-// --- Mercenary Credential Helpers ---
-// ... (existing mercenary functions remain unchanged) ...
+async function deleteContextBlock(id) {
+  const db = await initDB();
+  const tx = db.transaction(STORES.context_blocks, 'readwrite');
+  await tx.store.delete(id);
+  await tx.done;
+}
+
+async function listContextBlocks() {
+  const db = await initDB();
+  return await db.getAll(STORES.context_blocks);
+}
+
+// --- Agent Task Management (Added in v3) ---
+async function createAgentTask(task) {
+  const db = await initDB();
+  const defaultTask = {
+    id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`, // Simple ID generation
+    projectId: currentProjectId, // Associate with current project
+    type: 'soldier', // Default or passed in
+    status: 'pending', // 'pending', 'running', 'done', 'error'
+    goal: '',
+    provider: '',
+    model: '',
+    maxSteps: 10,
+    createdAt: Date.now(),
+    startedAt: null,
+    finishedAt: null,
+    result: null,
+    error: null
+  };
+  const finalTask = { ...defaultTask, ...task };
+  await db.put(STORES.agent_tasks, finalTask);
+  return finalTask;
+}
+
+async function updateAgentTask(id, updates) {
+  const db = await initDB();
+  const task = await db.get(STORES.agent_tasks, id);
+  if (task) {
+    Object.assign(task, updates);
+    if (updates.status === 'running' && !task.startedAt) {
+      task.startedAt = Date.now();
+    }
+    if (['done', 'error', 'stopped'].includes(updates.status) && !task.finishedAt) {
+      task.finishedAt = Date.now();
+    }
+    await db.put(STORES.agent_tasks, task);
+  }
+}
+
+async function getAgentTask(id) {
+  const db = await initDB();
+  return await db.get(STORES.agent_tasks, id);
+}
+
+async function getAgentTasksByProject(projectId) {
+  const db = await initDB();
+  const tx = db.transaction(STORES.agent_tasks, 'readonly');
+  const index = tx.store.index('projectId');
+  return await index.getAll(IDBKeyRange.only(projectId));
+}
+
+// --- Mercenary Credential Helpers (Scaffold) ---
+// Note: Storing credentials in plain text in localStorage is temporary.
+// Encryption planned for Phase 17.
+const MERCENARY_GITHUB_CREDENTIAL_KEY = 'vian_mercenary_github';
+const MERCENARY_CLOUDFLARE_CREDENTIAL_KEY = 'vian_mercenary_cloudflare';
+
+async function getMercenaryCredential(type) {
+  if (type === 'github') {
+    const stored = localStorage.getItem(MERCENARY_GITHUB_CREDENTIAL_KEY);
+    return stored ? JSON.parse(stored) : { pat: '', repo: '' };
+  } else if (type === 'cloudflare') {
+    const stored = localStorage.getItem(MERCENARY_CLOUDFLARE_CREDENTIAL_KEY);
+    return stored ? JSON.parse(stored) : { url: '', token: '' };
+  }
+  return null;
+}
+
+async function setMercenaryCredential(type, credential) {
+  if (type === 'github') {
+    localStorage.setItem(MERCENARY_GITHUB_CREDENTIAL_KEY, JSON.stringify(credential));
+  } else if (type === 'cloudflare') {
+    localStorage.setItem(MERCENARY_CLOUDFLARE_CREDENTIAL_KEY, JSON.stringify(credential));
+  }
+}
 
 // --- Exports ---
 export {
@@ -243,6 +387,21 @@ export {
   loadConversation,
   deleteConversation,
   getConversationsByProject,
-  // ... other exports ...
+  createProject,
+  loadProject,
+  updateProject,
+  deleteProject,
+  listProjects,
+  getProjectCount,
+  saveContextBlock,
+  loadContextBlock,
+  deleteContextBlock,
+  listContextBlocks,
+  createAgentTask,
+  updateAgentTask,
+  getAgentTask,
+  getAgentTasksByProject,
+  getMercenaryCredential,
+  setMercenaryCredential,
   ALL_PROVIDERS // Re-export from api/index.js for components that might need it
 };
