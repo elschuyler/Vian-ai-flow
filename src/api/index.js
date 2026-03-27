@@ -9,7 +9,8 @@ import { streamOllama } from './ollama.js';
 import { streamMistral } from './mistral.js'; // Import Mistral
 import { getKey, getKeys } from '../db/storage.js';
 
-// ---const PROVIDER_FUNCTIONS = {
+// --- Provider Streaming Functions Map ---
+const PROVIDER_FUNCTIONS = {
   anthropic: streamAnthropic,
   openai: streamOpenAI,
   google: streamGoogle,
@@ -32,7 +33,8 @@ const PROVIDER_MODELS = {
   mistral: ['mistral-large-latest', 'mistral-small-latest', 'codestral-latest'], // Add Mistral models
 };
 
-// ---const ALL_PROVIDERS = Object.keys(PROVIDER_FUNCTIONS); // ['anthropic', 'openai', 'google', 'deepseek', 'openrouter', 'groq', 'ollama', 'mistral']
+// --- All Providers Array ---
+const ALL_PROVIDERS = Object.keys(PROVIDER_FUNCTIONS); // ['anthropic', 'openai', 'google', 'deepseek', 'openrouter', 'groq', 'ollama', 'mistral']
 
 // --- Provider Labels Map ---
 const PROVIDER_LABELS = {
