@@ -1,366 +1,164 @@
 <!DOCTYPE html>
-<!-- Copyright (C) 2025 Schuyler [full name added later] -->
-<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#000000" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="description" content="Private offline-capable AI chat. No accounts. No tracking." />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vian AI Flow</title>
-  <link rel="manifest" href="./manifest.json" />
-  <link rel="icon" href="./icons/icon-192.png" />
-  <link rel="stylesheet" href="./src/style.css" />
+  <link rel="manifest" href="/public/manifest.json">
+  <link rel="stylesheet" href="/src/style.css">
+  <link rel="icon" href="/public/icons/icon-192.png" type="image/png">
   <script>
-    (function(){
-      try {
-        var t = JSON.parse(localStorage.getItem('vian_theme')) || 'dark';
-        document.documentElement.setAttribute('data-theme', t);
-      } catch(e) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-      }
-    })();
+    // Apply theme before first render to prevent flash
+    const savedTheme = localStorage.getItem('vian_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
   </script>
 </head>
 <body>
 
-  <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
-
-  <nav id="sidebar" class="sidebar" aria-label="Navigation">
-    <div class="sidebar-header">
-      <span class="sidebar-title">Vian AI Flow</span>
-      <button id="sidebar-close" class="icon-btn" aria-label="Close sidebar">✕</button>
-    </div>
-    <div class="sidebar-actions">
-      <button id="btn-new-chat" class="sidebar-btn"><span aria-hidden="true">＋</span> New Chat</button>
-      <button id="btn-api-manager" class="sidebar-btn"><span aria-hidden="true">🔑</span> API Manager</button>
-      <button id="btn-context-manager" class="sidebar-btn"><span aria-hidden="true">📋</span> Context Manager</button>
-      <button id="btn-settings" class="sidebar-btn"><span aria-hidden="true">⚙</span> Settings</button>
-      <button id="btn-export-chat" class="sidebar-btn"><span aria-hidden="true">⬇</span> Export Chat</button>
+  <div class="app-container">
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <button id="new-chat-btn">+</button>
+      <button id="projects-btn">📁 Projects</button>
+      <button id="context-btn">📋 Context</button>
+      <button id="api-manager-btn">🔑 API</button>
+      <button id="tools-btn">⚙️ Tools</button>
+      <div class="top-bar-spacer"></div>
+      <button id="theme-toggle">🌙/☀️</button>
     </div>
 
-    <div class="sidebar-section-label">Project</div>
-    <div class="sidebar-project-area">
-      <button id="project-switcher-btn" class="project-switcher-btn" aria-expanded="false">
-        <span id="project-name-display">Loading…</span>
-        <span class="project-chevron" aria-hidden="true">▾</span>
-      </button>
-      <div id="project-picker" class="project-picker hidden">
-        <div id="project-picker-list" class="project-picker-list"></div>
-        <button id="btn-manage-projects" class="project-manage-link">Manage Projects →</button>
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar">
+      <!-- API Manager Section -->
+      <div id="api-manager-section" class="sidebar-section">
+        <h3>API Keys</h3>
+        <button id="add-api-key-btn">Add Key</button>
+        <div id="sidebar-provider-cards"></div>
       </div>
-    </div>
-
-    <div class="sidebar-section-label">Tools</div>
-    <div class="sidebar-tools">
-      <div class="tool-toggle-row">
-        <div class="tool-info">
-          <div class="tool-label">Repo / Page Fetcher</div>
-          <div class="tool-desc">AI can fetch GitHub &amp; Codeberg URLs</div>
-        </div>
-        <label class="toggle-switch" aria-label="Toggle Repo / Page Fetcher">
-          <input type="checkbox" id="tool-fetch" />
-          <span class="toggle-slider"></span>
-        </label>
+      <!-- Projects Section -->
+      <div id="projects-section" class="sidebar-section">
+        <h3>Projects</h3>
+        <div id="sidebar-projects-list"></div>
       </div>
-      <div class="tool-toggle-row">
-        <div class="tool-info">
-          <div class="tool-label">ZIP Generator</div>
-          <div class="tool-desc">AI can create &amp; download ZIP files</div>
-        </div>
-        <label class="toggle-switch" aria-label="Toggle ZIP Generator">
-          <input type="checkbox" id="tool-zip" />
-          <span class="toggle-slider"></span>
-        </label>
+      <!-- Context Section -->
+      <div id="context-section" class="sidebar-section">
+        <h3>Context</h3>
+        <div id="sidebar-context-list"></div>
       </div>
-      <div class="tool-toggle-row">
-        <div class="tool-info">
-          <div class="tool-label">Artifacts / Preview</div>
-          <div class="tool-desc">AI can render interactive HTML previews</div>
-        </div>
-        <label class="toggle-switch" aria-label="Toggle Artifacts / Preview">
-          <input type="checkbox" id="tool-preview" />
-          <span class="toggle-slider"></span>
-        </label>
+      <!-- Tools Section -->
+      <div id="tools-section" class="sidebar-section">
+        <h3>Tools</h3>
+        <label><input type="checkbox" id="tool-fetch-toggle"> Fetch</label>
+        <label><input type="checkbox" id="tool-zip-toggle"> Zip</label>
+        <label><input type="checkbox" id="tool-preview-toggle"> Preview</label>
+        <label><input type="checkbox" id="tool-extscripts-toggle"> Ext. Scripts (Preview)</label>
+        <label><input type="checkbox" id="tool-agent-toggle"> Agent</label>
       </div>
-      <div class="tool-toggle-row" id="tool-extscripts-row">
-        <div class="tool-info">
-          <div class="tool-label">Allow external scripts</div>
-          <div class="tool-desc">Let previews load CDN libraries (Chart.js etc.)</div>
-        </div>
-        <label class="toggle-switch" aria-label="Allow external scripts in preview">
-          <input type="checkbox" id="tool-extscripts" />
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-      <div class="tool-toggle-row">
-        <div class="tool-info">
-          <div class="tool-label">🤖 Agent Mode (Soldier)</div>
-          <div class="tool-desc">AI can run autonomous multi-step tasks</div>
-        </div>
-        <label class="toggle-switch" aria-label="Toggle Agent Mode">
-          <input type="checkbox" id="tool-agent" />
-          <span class="toggle-slider"></span>
-        </label>
+      <!-- Background Tasks Section (Mercenary Scaffold) -->
+      <div id="background-tasks-section" class="sidebar-section">
+        <h3>Background Tasks</h3>
+        <p>Coming soon. Credentials saved.</p>
       </div>
     </div>
 
-    <!-- ═══ BACKGROUND TASKS (Mercenary scaffold) ═══ -->
-    <div class="sidebar-section-label">Background Tasks</div>
-    <div id="bg-tasks-list" class="bg-tasks-list">
-      <p class="ctx-empty bg-tasks-empty">No background tasks yet.<br><span class="bg-tasks-note">Mercenary agent coming soon.</span></p>
+    <!-- Chat Container -->
+    <div id="chat-container" class="chat-container"></div>
+
+    <!-- Agent Confirm Banner -->
+    <div id="agent-confirm-banner" class="agent-confirm-banner">
+      <!-- Content rendered by JS -->
     </div>
 
-    <div class="sidebar-section-label">History</div>
-    <div id="chat-history-list" class="chat-history-list" aria-label="Chat history"></div>
-  </nav>
-
-  <header class="top-bar" role="banner">
-    <button id="hamburger" class="icon-btn" aria-label="Open sidebar" aria-expanded="false">
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-        <rect y="2"  width="18" height="2" rx="1" fill="currentColor"/>
-        <rect y="8"  width="18" height="2" rx="1" fill="currentColor"/>
-        <rect y="14" width="18" height="2" rx="1" fill="currentColor"/>
-      </svg>
-    </button>
-    <input
-      id="model-input"
-      class="model-combo"
-      list="model-list"
-      placeholder="Model…"
-      autocomplete="off"
-      autocorrect="off"
-      autocapitalize="off"
-      spellcheck="false"
-      aria-label="Select or type AI model"
-    />
-    <datalist id="model-list"></datalist>
-    <button id="context-btn" class="icon-btn context-icon-btn" aria-label="Open context panel" aria-expanded="false">
-      <span id="context-dot" class="context-dot hidden" aria-hidden="true"></span>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/>
-        <line x1="12" y1="8" x2="12" y2="12"/>
-        <line x1="12" y1="16" x2="12.01" y2="16"/>
-      </svg>
-    </button>
-  </header>
-
-  <div id="context-panel" class="context-panel hidden" role="dialog" aria-label="Context blocks">
-    <div class="context-panel-header">
-      <span>Context Blocks</span>
-      <button id="context-manage-link" class="link-btn">Manage →</button>
-    </div>
-    <div id="context-toggle-list" class="context-toggle-list" aria-label="Toggle context blocks"></div>
-  </div>
-
-  <main id="chat-area" class="chat-area" role="main">
-    <div id="messages" class="messages" aria-live="polite" aria-label="Chat messages"></div>
-    <div id="typing-indicator" class="typing-indicator hidden" aria-label="AI is typing" aria-hidden="true">
-      <span></span><span></span><span></span>
-    </div>
-  </main>
-
-  <!-- ═══ AGENT CONFIRM BANNER ═══ -->
-  <div id="agent-confirm-banner" class="agent-confirm-banner hidden" aria-live="assertive">
-    <div class="agent-confirm-inner">
-      <div class="agent-confirm-icon">⚠</div>
-      <div class="agent-confirm-body">
-        <div class="agent-confirm-title">Agent requesting confirmation</div>
-        <div id="agent-confirm-desc" class="agent-confirm-desc"></div>
-      </div>
-      <div class="agent-confirm-btns">
-        <button id="agent-confirm-accept" class="agent-confirm-btn accept">Accept</button>
-        <button id="agent-confirm-skip"   class="agent-confirm-btn skip">Skip</button>
-      </div>
+    <!-- Input Bar -->
+    <div id="input-bar" class="input-bar">
+      <input type="text" id="message-input" placeholder="Type your message..." autocomplete="off" />
+      <select id="provider-select" class="combo-select">
+        <!-- Options populated by JS based on saved keys -->
+      </select>
+      <datalist id="provider-datalist">
+        <!-- Options populated by JS based on saved keys -->
+      </datalist>
+      <select id="model-select" class="combo-select">
+        <!-- Options populated by JS based on selected provider -->
+      </select>
+      <datalist id="model-datalist">
+        <!-- Options populated by JS based on selected provider -->
+      </datalist>
+      <button id="send-button">Send</button>
+      <button id="agent-mode-toggle" class="agent-toggle">🤖 Agent</button>
+      <button id="stop-agent-btn" class="stop-agent-btn" style="display:none;">⏹️ Stop</button>
     </div>
   </div>
 
-  <footer class="input-bar">
-    <textarea
-      id="chat-input"
-      class="chat-input"
-      placeholder="Message Vian…"
-      rows="1"
-      aria-label="Type your message"
-      autocorrect="off"
-      autocapitalize="sentences"
-      spellcheck="true"
-    ></textarea>
-    <button id="send-btn" class="send-btn" aria-label="Send message">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="22" y1="2" x2="11" y2="13"/>
-        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-      </svg>
-    </button>
-    <button id="stop-btn" class="stop-btn hidden" aria-label="Stop agent">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-        <rect x="4" y="4" width="16" height="16" rx="2"/>
-      </svg>
-    </button>
-  </footer>
-
-  <!-- ═══ MODAL: API MANAGER ═══ -->
-  <div id="modal-api" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-api-title">
-    <div class="modal-box">
-      <div class="modal-header">
-        <span id="modal-api-title" class="modal-title">API Manager</span>
-        <button class="modal-close icon-btn" data-modal="modal-api" aria-label="Close">✕</button>
-      </div>
-      <div class="modal-body">
-        <p class="modal-note">Keys stored on device only. For Ollama paste your base URL (e.g. http://localhost:11434).</p>
-        <div class="key-add-row">
-          <input type="password" id="key-paste-input" class="key-input key-paste-input"
-            placeholder="Paste API key or Ollama URL…" autocomplete="off" autocorrect="off" spellcheck="false" />
-          <button id="btn-add-key" class="key-add-btn">Add</button>
-        </div>
-        <div id="key-disambig" class="key-disambig hidden" aria-live="polite">
-          <span class="key-disambig-label">Which provider?</span>
-          <div class="key-disambig-btns">
-            <button class="key-disambig-opt" data-provider="openai">OpenAI</button>
-            <button class="key-disambig-opt" data-provider="deepseek">DeepSeek</button>
-          </div>
-        </div>
-        <div id="key-cards-list" class="key-cards-list" aria-label="Saved API keys"></div>
-
-        <!-- ═══ MERCENARY SCAFFOLD ═══ -->
-        <div class="mercenary-section">
-          <div class="mercenary-section-title">🪖 Background Agent Infrastructure</div>
-          <p class="modal-note">Run tasks after the app closes. Coming soon — credentials are saved but not yet active.</p>
-
-          <div class="mercenary-provider">
-            <div class="field-label">GitHub Actions (free)</div>
-            <input type="password" id="merc-github-pat" class="key-input"
-              placeholder="GitHub Personal Access Token…" autocomplete="off" />
-            <input type="text" id="merc-github-repo" class="key-input"
-              placeholder="Workflow repo (e.g. yourname/vian-agent)…" autocomplete="off" />
-            <button id="btn-save-github-merc" class="primary-btn" style="margin-top:4px;">Save GitHub Credentials</button>
-          </div>
-
-          <div class="mercenary-provider">
-            <div class="field-label">Cloudflare Worker (your own account)</div>
-            <input type="text" id="merc-cf-url" class="key-input"
-              placeholder="Worker URL (https://…)…" autocomplete="off" />
-            <input type="password" id="merc-cf-token" class="key-input"
-              placeholder="Cloudflare API Token…" autocomplete="off" />
-            <button id="btn-save-cf-merc" class="primary-btn" style="margin-top:4px;">Save Cloudflare Credentials</button>
-          </div>
-        </div>
-      </div>
+  <!-- Modals -->
+  <!-- API Key Modal -->
+  <div id="api-key-modal" class="modal">
+    <div class="modal-content">
+      <span id="close-api-key-modal">&times;</span>
+      <h2>Manage API Keys</h2>
+      <form id="api-key-form">
+        <input type="password" id="api-key-input" placeholder="Paste API Key...">
+        <button type="submit">Detect & Add</button>
+      </form>
+      <div id="provider-cards"></div>
+      <p><small>Keys stored on device only. For Ollama paste your base URL (e.g. http://localhost:11434).</small></p>
+      <p><small>Run tasks after the app closes. Coming soon — credentials are saved but not yet active.</small></p>
     </div>
   </div>
 
-  <!-- ═══ MODAL: CONTEXT MANAGER ═══ -->
-  <div id="modal-context" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-ctx-title">
-    <div class="modal-box">
-      <div class="modal-header">
-        <span id="modal-ctx-title" class="modal-title">Context Manager</span>
-        <button class="modal-close icon-btn" data-modal="modal-context" aria-label="Close">✕</button>
-      </div>
-      <div class="modal-body">
-        <label class="field-label" for="ctx-new-name">Block Name</label>
-        <input type="text" id="ctx-new-name" class="key-input" placeholder="e.g. Bullet-point mode" />
-        <label class="field-label" for="ctx-new-content">Instructions</label>
-        <textarea id="ctx-new-content" class="ctx-textarea" placeholder="Instructions for the AI…" rows="4"></textarea>
-        <button id="btn-add-ctx" class="primary-btn" style="margin-bottom:1rem;">Add Block</button>
-        <div id="ctx-blocks-list" class="ctx-blocks-list" aria-label="Saved context blocks"></div>
-      </div>
+  <!-- NEW: Provider Picker Modal -->
+  <div id="provider-picker-modal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="close-provider-picker-modal">&times;</span> <!-- Close button needed by Cancel button -->
+      <h2>Select Provider</h2>
+      <p>The key you entered did not match a known provider prefix. Please select the correct provider:</p>
+      <form id="provider-picker-form">
+        <div id="provider-picker-options">
+          <!-- Options will be populated by JavaScript -->
+        </div>
+        <button type="submit" id="confirm-provider-btn">Confirm Provider</button>
+        <button type="button" id="cancel-provider-btn">Cancel</button>
+      </form>
     </div>
   </div>
 
-  <!-- ═══ MODAL: SETTINGS ═══ -->
-  <div id="modal-settings" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title">
-    <div class="modal-box">
-      <div class="modal-header">
-        <span id="modal-settings-title" class="modal-title">Settings</span>
-        <button class="modal-close icon-btn" data-modal="modal-settings" aria-label="Close">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="setting-row">
-          <div class="setting-info">
-            <div class="setting-label">Theme</div>
-            <div class="setting-desc">Switch between dark, light, and electric grid</div>
-          </div>
-          <select id="setting-theme" class="setting-select">
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-            <option value="grid">Electric Grid</option>
-          </select>
-        </div>
-        <div class="setting-row">
-          <div class="setting-info">
-            <div class="setting-label">Auto-execute AI scripts</div>
-            <div class="setting-desc">Run [RUN] blocks automatically when streaming ends</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="setting-autorun" />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-        <div class="setting-row">
-          <div class="setting-info">
-            <div class="setting-label">Agent log style</div>
-            <div class="setting-desc">How agent steps appear in chat</div>
-          </div>
-          <select id="setting-agent-log" class="setting-select">
-            <option value="panel">Panel (collapsed)</option>
-            <option value="inline">Inline (each step as message)</option>
-          </select>
-        </div>
-        <div class="setting-row">
-          <div class="setting-info">
-            <div class="setting-label">Agent step limit</div>
-            <div class="setting-desc">Max steps per Soldier loop (1–20)</div>
-          </div>
-          <input type="number" id="setting-agent-steps" class="setting-number"
-            min="1" max="20" value="10" />
-        </div>
-        <div class="setting-row">
-          <div class="setting-info">
-            <div class="setting-label">Allow multiple agents</div>
-            <div class="setting-desc">Run more than one Soldier loop at a time</div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="setting-multi-agent" />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
+  <!-- Projects Modal -->
+  <div id="projects-modal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="close-projects-modal">&times;</span>
+      <h2>Projects</h2>
+      <button id="create-project-btn">Create New Project</button>
+      <div id="projects-list"></div>
     </div>
   </div>
 
-  <!-- ═══ MODAL: PROJECTS ═══ -->
-  <div id="modal-projects" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-projects-title">
-    <div class="modal-box">
-      <div class="modal-header">
-        <span id="modal-projects-title" class="modal-title">Projects</span>
-        <button class="modal-close icon-btn" data-modal="modal-projects" aria-label="Close">✕</button>
-      </div>
-      <div class="modal-body">
-        <div id="new-project-section" class="new-project-section">
-          <div class="field-label">New Project</div>
-          <input type="text" id="proj-new-name" class="key-input"
-            placeholder="Project name…" maxlength="40" autocomplete="off" />
-          <div class="proj-prompt-wrap">
-            <textarea id="proj-new-prompt" class="ctx-textarea"
-              placeholder="System prompt (optional)…" rows="3" maxlength="2000"></textarea>
-            <div class="char-counter"><span id="proj-prompt-count">0</span> / 2000</div>
-          </div>
-          <input type="text" id="proj-new-repo" class="key-input"
-            placeholder="Repo URL (optional, e.g. https://github.com/…)" autocomplete="off" />
-          <button id="btn-create-project" class="primary-btn">Create Project</button>
-        </div>
-        <label class="proj-import-label">
-          Import Project from JSON
-          <input type="file" id="proj-import-file" accept=".json" />
-        </label>
-        <div id="project-cards-list" class="project-cards-list"></div>
-      </div>
+  <!-- Context Modal -->
+  <div id="context-modal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="close-context-modal">&times;</span>
+      <h2>Context Blocks</h2>
+      <button id="add-context-block-btn">Add Context Block</button>
+      <div id="context-blocks-list"></div>
     </div>
   </div>
 
-  <script type="module" src="./src/main.js"></script>
+  <!-- Agent Settings Modal -->
+  <div id="agent-settings-modal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="close-agent-settings-modal">&times;</span>
+      <h2>Agent Settings</h2>
+      <label for="agent-log-style">Log Style:</label>
+      <select id="agent-log-style">
+        <option value="panel">Panel (Collapsed)</option>
+        <option value="inline">Inline (Messages)</option>
+      </select>
+      <label for="agent-max-steps">Max Steps (1-20):</label>
+      <input type="number" id="agent-max-steps" min="1" max="20" value="10">
+      <label><input type="checkbox" id="multi-agent-toggle"> Allow Multiple Agents</label>
+      <button id="save-agent-settings">Save Settings</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
 </body>
-</html>
+                 </html>
