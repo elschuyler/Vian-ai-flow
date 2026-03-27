@@ -1,130 +1,160 @@
-// Copyright (C) 2025 Schuyler [full name added later]
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// src/api/index.js
+import { streamAnthropic } from './anthropic.js';
+import { streamOpenAI } from './openai.js';
+import { streamGoogle } from './google.js';
+import { streamDeepSeek } from './deepseek.js';
+import { streamOpenRouter } from './openrouter.js';
+import { streamGroq } from './groq.js';
+import { streamOllama } from './ollama.js';
+import { streamMistral } from './mistral.js'; // Import Mistral
+import { getKey, getKeys } from '../db/storage.js';
 
-// ═══════════════════════════════════════════
-// VIAN AI FLOW — API Router
-// Single entry point for all AI providers.
-// ═══════════════════════════════════════════
+// ---const PROVIDER_FUNCTIONS = {
+  anthropic: streamAnthropic,
+  openai: streamOpenAI,
+  google: streamGoogle,
+  deepseek: streamDeepSeek,
+  openrouter: streamOpenRouter,
+  groq: streamGroq,
+  ollama: streamOllama,
+  mistral: streamMistral, // Add Mistral function
+};
 
-import { streamAnthropic,  ANTHROPIC_MODELS  } from './anthropic.js';
-import { streamOpenAI,     OPENAI_MODELS     } from './openai.js';
-import { streamGoogle,     GOOGLE_MODELS     } from './google.js';
-import { streamDeepSeek,   DEEPSEEK_MODELS   } from './deepseek.js';
-import { streamOpenRouter, OPENROUTER_MODELS } from './openrouter.js';
-import { streamGroq,       GROQ_MODELS       } from './groq.js';
-import { streamOllama,     OLLAMA_MODELS     } from './ollama.js';
-import { getKeys } from '../db/storage.js';
+// --- Model Lists Map ---
+const PROVIDER_MODELS = {
+  anthropic: ['claude-sonnet-4-20250514', 'claude-opus-4-20250514', 'claude-haiku-4-5-20251001'],
+  openai: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'],
+  google: ['gemini-2.0-flash', 'gemini-2.5-pro-exp-03-25'],
+  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
+  openrouter: ['meta-llama/llama-3.1-8b-instruct:free', 'meta-llama/llama-3.3-70b-instruct:free', 'mistralai/mistral-7b-instruct:free', 'google/gemma-3-27b-it:free', 'deepseek/deepseek-r1:free'],
+  groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mistral-saba-24b', 'gemma2-9b-it', 'deepseek-r1-distill-llama-70b'],
+  ollama: [], // Dynamic, populated based on user input
+  mistral: ['mistral-large-latest', 'mistral-small-latest', 'codestral-latest'], // Add Mistral models
+};
 
-export const ALL_MODELS = [
-  ...ANTHROPIC_MODELS.map(m  => ({ ...m, provider: 'anthropic',  group: 'Anthropic'  })),
-  ...OPENAI_MODELS.map(m     => ({ ...m, provider: 'openai',     group: 'OpenAI'     })),
-  ...GOOGLE_MODELS.map(m     => ({ ...m, provider: 'google',     group: 'Google'     })),
-  ...DEEPSEEK_MODELS.map(m   => ({ ...m, provider: 'deepseek',   group: 'DeepSeek'   })),
-  ...OPENROUTER_MODELS.map(m => ({ ...m, provider: 'openrouter', group: 'OpenRouter' })),
-  ...GROQ_MODELS.map(m       => ({ ...m, provider: 'groq',       group: 'Groq'       })),
-  ...OLLAMA_MODELS.map(m     => ({ ...m, provider: 'ollama',     group: 'Ollama'     })),
-];
+// ---const ALL_PROVIDERS = Object.keys(PROVIDER_FUNCTIONS); // ['anthropic', 'openai', 'google', 'deepseek', 'openrouter', 'groq', 'ollama', 'mistral']
 
-export function getProviderForModel(modelId) {
-  return ALL_MODELS.find(m => m.id === modelId)?.provider ?? null;
-}
+// --- Provider Labels Map ---
+const PROVIDER_LABELS = {
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  google: 'Google',
+  deepseek: 'DeepSeek',
+  openrouter: 'OpenRouter',
+  groq: 'Groq',
+  ollama: 'Ollama',
+  mistral: 'Mistral', // Add Mistral label
+};
 
-// HTTP status codes that mean quota / rate-limit. Try next key on these.
-const FAILOVER_CODES = new Set([402, 429, 503]);
-
-function isFailoverError(err) {
-  if (!err?.message) return false;
-  for (const code of FAILOVER_CODES) {
-    if (err.message.includes(String(code))) return true;
-  }
-  return false;
-}
-
+// --- Detect Provider from Key ---
 /**
- * Stream a message to the selected model with automatic key failover.
- *
- * Because the top bar is now a free-text combo input, modelId may be any
- * string the user typed. We first try to match it against the known model
- * list to find the provider. If not found we fall back to checking which
- * providers have keys saved and try them in order:
- *   openrouter → groq → ollama → openai → deepseek → anthropic → google
- *
- * @param {object} opts
- * @param {string}   opts.modelId
- * @param {array}    opts.messages
- * @param {string}   opts.system
- * @param {function} opts.onUsage
+ * Determines the provider associated with an API key based on its prefix.
+ * Returns 'unknown' if the prefix doesn't match any known pattern.
+ * @param {string} key - The API key string.
+ * @returns {string} - The provider name ('anthropic', 'openai', 'google', 'groq', 'openrouter', 'ollama', 'mistral', 'unknown').
  */
-export async function* streamMessage(opts) {
-  const modelId  = opts.modelId;
-  let   provider = getProviderForModel(modelId);
+function detectProviderFromKey(key) {
+  if (typeof key !== 'string') return 'unknown';
 
-  // Unknown model ID — infer provider from saved keys + model name heuristics
-  if (!provider) {
-    provider = inferProvider(modelId);
+  if (key.startsWith('sk-ant-')) return 'anthropic';
+  if (key.startsWith('AIza')) return 'google';
+  if (key.startsWith('gsk_')) return 'groq';
+  if (key.startsWith('sk-or-')) return 'openrouter';
+  if (key.startsWith('http://') || key.startsWith('https://')) return 'ollama';
+  if (key.startsWith('sk-')) return 'openai_or_deepseek'; // Ambiguous case handled elsewhere
+  // Mistral has no unique prefix, so any unrecognized key returns 'unknown'
+  // This will trigger the provider picker in the UI when adding keys.
+  return 'unknown';
+}
+
+
+// --- Infer Provider from Model Name ---
+/**
+ * Attempts to determine the provider for a given model name based on naming conventions.
+ * Falls back to the first provider with a saved key if no match is found.
+ * @param {string} modelName - The model identifier string.
+ * @param {string} [fallbackProvider] - Optional provider to use if no match found.
+ * @returns {string} - The inferred provider name.
+ */
+function inferProvider(modelName, fallbackProvider = null) {
+  if (!modelName) return fallbackProvider || ALL_PROVIDERS.find(p => getKeys(p).length > 0) || 'openai';
+
+  const lowerModelName = modelName.toLowerCase();
+
+  // Check against known provider model patterns
+  if (lowerModelName.includes('claude')) return 'anthropic';
+  if (lowerModelName.includes('gpt') || lowerModelName.includes('o3')) return 'openai';
+  if (lowerModelName.includes('gemini')) return 'google';
+  if (lowerModelName.includes('deepseek')) return 'deepseek';
+  if (lowerModelName.includes('llama') || lowerModelName.includes('mistral') || lowerModelName.includes('gemma') || lowerModelName.includes('dbrx') || lowerModelName.includes('nousresearch') || lowerModelName.includes('hacker')) return 'openrouter'; // Common OpenRouter models
+  if (lowerModelName.includes('grok') || lowerModelName.includes('mixtral') || lowerModelName.includes('gemma') || lowerModelName.includes('llama') || lowerModelName.includes('codestral') || lowerModelName.includes('ministral')) return 'groq'; // Common Groq models
+  // No specific pattern for Mistral beyond its name, covered by lowerModelName check below if needed
+  if (lowerModelName.includes('mistral')) return 'mistral';
+
+  // If no pattern matched, use the fallback or the first provider with a key
+  return fallbackProvider || ALL_PROVIDERS.find(p => getKeys(p).length > 0) || 'openai';
+}
+
+// --- Stream Message Function ---
+/**
+ * Calls the appropriate provider's streaming function.
+ * Implements basic failover by trying subsequent keys if the first fails with 402/429/503.
+ * @param {string} provider - The provider name.
+ * @param {Array<Object>} messages - Chat messages.
+ * @param {string} model - Model ID.
+ * @param {string} [keyOverride] - Optional key to use instead of the stored one.
+ * @param {Object} options - Additional options like temperature.
+ * @returns {AsyncGenerator<string>} - Async generator yielding response chunks.
+ */
+async function* callMessage(provider, messages, model, keyOverride = null, options = {}) {
+  const providerFunc = PROVIDER_FUNCTIONS[provider];
+  if (!providerFunc) {
+    throw new Error(`Unsupported provider: ${provider}`);
   }
 
-  if (!provider) {
-    throw new Error(`Cannot determine provider for model "${modelId}". Add a key in API Manager.`);
+  const keysToTry = keyOverride ? [keyOverride] : getKeys(provider);
+
+  if (!keysToTry.length && !keyOverride) {
+    throw new Error(`No keys found for provider: ${provider}`);
   }
 
-  const keys = getKeys(provider);
-
-  if (!keys.length) {
-    throw new Error(`No ${provider} key saved. Open API Manager to add one.`);
-  }
-
-  let lastErr = null;
-
-  for (const key of keys) {
-    const args = { ...opts, model: modelId, key };
+  let lastError;
+  for (const key of keysToTry) {
     try {
-      switch (provider) {
-        case 'anthropic':  yield* streamAnthropic(args);  break;
-        case 'openai':     yield* streamOpenAI(args);     break;
-        case 'google':     yield* streamGoogle(args);     break;
-        case 'deepseek':   yield* streamDeepSeek(args);   break;
-        case 'openrouter': yield* streamOpenRouter(args); break;
-        case 'groq':       yield* streamGroq(args);       break;
-        case 'ollama':     yield* streamOllama(args);     break;
-        default: throw new Error(`Unknown provider: ${provider}`);
+      yield* providerFunc(messages, model, key, options);
+      lastError = null; // Clear error if one attempt succeeds
+      break; // Exit loop on success
+    } catch (error) {
+      console.error(`Error calling ${provider} with key [${key.substring(0, 5)}...]:`, error);
+      lastError = error;
+
+      // Check for specific retryable errors (402, 429, 503) often related to rate limits or billing
+      // Note: Error object structure might vary depending on network/client
+      // This assumes the error contains status information if available
+      const status = error.status || (error.message && parseInt(error.message.match(/status:\s*(\d+)/)?.[1]));
+      if (status && [402, 429, 503].includes(status)) {
+        console.log(`Retrying ${provider} with next key due to status ${status}.`);
+        continue; // Try the next key
+      } else {
+        // Non-retryable error, re-throw
+        throw error;
       }
-      return; // success
-    } catch (err) {
-      if (isFailoverError(err)) { lastErr = err; continue; }
-      throw err;
     }
   }
 
-  throw lastErr || new Error(`All ${provider} keys failed.`);
-}
-
-// ─── Provider inference for free-text model IDs ──────────────
-// When the user types a model name that isn't in our known list,
-// we guess the provider from the model ID string, then fall back
-// to whichever provider has a saved key.
-
-const PROVIDER_PRIORITY = [
-  'openrouter', 'groq', 'ollama', 'openai', 'deepseek', 'anthropic', 'google',
-];
-
-function inferProvider(modelId) {
-  const id = modelId.toLowerCase();
-
-  // Strong string signals
-  if (id.includes('claude'))      return 'anthropic';
-  if (id.includes('gemini'))      return 'google';
-  if (id.includes('gpt') || id.includes('o1') || id.includes('o3')) return 'openai';
-  if (id.includes('deepseek'))    return 'deepseek';
-  if (id.includes('groq'))        return 'groq';
-
-  // OpenRouter models always contain a slash (owner/model)
-  if (id.includes('/'))           return 'openrouter';
-
-  // Fall back to first provider that has a key saved
-  for (const p of PROVIDER_PRIORITY) {
-    if (getKeys(p).length) return p;
+  // If loop completes and lastError is still set, all keys failed
+  if (lastError) {
+    throw lastError;
   }
-
-  return null;
 }
+
+
+// --- Exports ---
+export {
+  callMessage,
+  detectProviderFromKey, // Export the detection function
+  inferProvider,
+  ALL_PROVIDERS,
+  PROVIDER_LABELS,
+  PROVIDER_MODELS,
+};
