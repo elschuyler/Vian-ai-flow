@@ -53,7 +53,7 @@ body {
   --accent-warning: #ff8f00;
   --accent-error: #d32f2f;
   --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  --radius: 6px;
+ 6px;
 }
 
 :root[data-theme="grid"] {
@@ -85,9 +85,9 @@ body {
 .app-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100vh; /* Full viewport height */
   width: 100vw;
-  overflow: hidden;
+  overflow: hidden; /* Prevent default body scroll */
   position: relative; /* For absolute positioning of tray */
 }
 
@@ -100,6 +100,7 @@ body {
   border-bottom: 1px solid var(--border-primary);
   z-index: 10;
   flex-shrink: 0; /* Prevent shrinking */
+  height: 40px; /* Explicit height */
 }
 
 .top-bar button {
@@ -121,20 +122,41 @@ body {
   flex-grow: 1;
 }
 
-/* Sidebar */
+/* Sidebar - Updated for scrolling */
 .sidebar {
   position: absolute;
-  top: 40px; /* Height of top bar */
+  top: 40px; /* Height of top bar - matches .top-bar height */
   left: 0;
   width: 250px;
-  height: calc(100vh - 40px - 60px); /* Subtract top bar and input bar */
+  /* Calculate height: 100vh - top bar height */
+  height: calc(100vh - 40px);
+  max-height: calc(100vh - 40px); /* Ensure it doesn't exceed available space */
   background-color: var(--bg-tertiary);
   border-right: 1px solid var(--border-primary);
   padding: 12px;
+  /* CRITICAL: Enable vertical scrolling within the sidebar */
   overflow-y: auto;
   z-index: 5;
   transition: transform 0.3s ease;
   transform: translateX(-100%); /* Hidden by default */
+}
+
+/* Optional: Add a scrollbar style if needed */
+.sidebar::-webkit-scrollbar {
+  width: 6px; /* Thin scrollbar */
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--border-secondary);
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
 }
 
 .sidebar.active {
@@ -180,6 +202,8 @@ body {
   margin-right: 0;
   transition: margin 0.3s ease;
   padding-bottom: 80px; /* Make space for input bar and tray */
+  /* Ensure it doesn't interfere with the sidebar's overflow */
+  /* height: calc(100vh - 40px - 60px); /* May need adjustment if competing with sidebar */
 }
 
 .chat-container.has-sidebar {
@@ -268,6 +292,7 @@ body {
   border-top: 1px solid var(--border-primary);
   z-index: 10;
   gap: 8px;
+  height: 60px; /* Explicit height */
 }
 
 .input-bar input {
@@ -307,7 +332,7 @@ body {
   position: relative;
   /* Hide the default dropdown arrow */
   appearance: none;
-  background-image: url("image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e"); /* Corrected URL */
   background-repeat: no-repeat;
   background-position: right 8px center;
   background-size: 16px;
@@ -535,7 +560,7 @@ body {
   flex-direction: column;
   gap: 8px; /* Space between icons */
   z-index: 1000; /* Ensure it's on top */
-  pointer-events: auto; /* Ensure clicks register */
+ auto; /* Ensure clicks register */
 }
 .agent-tray-icon {
   width: 40px;
@@ -629,4 +654,4 @@ body {
   opacity: 0.5;
   pointer-events: none; /* Prevent interactions */
   cursor: not-allowed;
-}
+  }
