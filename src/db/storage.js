@@ -17,7 +17,7 @@ let db;
 async function initDB() {
   if (db) return db;
 
-  db = await openDB(DB_NAME, DB_VERSION, {
+  db = await, DB_VERSION, {
     upgrade(upgradeDb, oldVersion, newVersion, transaction) {
       console.log(`DB Upgrade: ${oldVersion} -> ${newVersion}`);
 
@@ -27,7 +27,7 @@ async function initDB() {
         upgradeDb.createObjectStore(STORES.context_blocks, { keyPath: 'id' });
         const projectsOS = upgradeDb.createObjectStore(STORES.projects, { keyPath: 'id' });
         // Index for fetching conversations by projectId
-        upgradeDb.transaction.objectStore(STORES.conversations).createIndex('projectId', 'projectId', { unique: false });
+        upgradeDb.transactionS.conversations).createIndex('projectId', 'projectId', { unique: false });
 
         // Create initial default project if upgrading from scratch
         if (oldVersion === 0) {
@@ -38,7 +38,7 @@ async function initDB() {
             repoUrl: '',
             createdAt: Date.now(),
             updatedAt: Date.now(),
-: null // Will be set later if migrating
+            lastConvId: null // Will be set later if migrating
           };
           projectsOS.add(projectData);
         }
@@ -143,7 +143,7 @@ async function getKeys(provider) {
     }
   } else if (legacyKey) {
     // Migration needed: convert single key to array format
-    console.log(`M for ${provider}`);
+    console.log(`Migrating legacy key for ${provider}`);
     const newKeysArray = [legacyKey];
     localStorage.setItem(`${KEY_STORAGE_PREFIX}${provider}`, JSON.stringify(newKeysArray));
     localStorage.removeItem(`vian_key_${provider}`); // Remove old key
