@@ -1,21 +1,22 @@
 // src/api/mistral.js
-import { streamOpenAI } from './ // Reuse OpenAI logic since Mistral is compatible
+import { streamOpenAI } from './openai.js'; // Reuse OpenAI logic since Mistral is compatible
 
 const MISTRAL_ENDPOINT = 'https://api.mistral.ai/v1/chat/completions';
 const MISTRAL_MODELS = [
   'mistral-large-latest',
   'mistral-small-latest',
- -latest'
+  'codestral-latest'
 ];
 
 /**
- * Streams response from Mist @param {Array<Object>} messages - Chat messages.
+ * Streams response from Mistral API.
+ * @param {Array<Object>} messages - Chat messages.
  * @param {string} model - Model ID.
  * @param {string} key - API key (optional, falls back to stored key).
  * @param {Object} options - Additional options like temperature.
  * @yields {string} - Chunks of the response.
  */
-async function* streamMistral(messages, model, key, options = {}) {
+async function*(messages, model, key, options = {}) {
   const apiKey = key || getKey('mistral');
   if (!apiKey) {
     throw new Error('No Mistral API key found.');
@@ -35,12 +36,11 @@ function getPricing(model) {
     case 'mistral-large-latest':
       return { input: 2.00, output: 6.00 }; // USD/million tokens
     case 'mistral-small-latest':
-      return { input: 0.: 0.30 };
+      return { input: 0.10, output: 0.30 };
     case 'codestral-latest':
       return { input: 0.70, output: 2.10 };
     default:
-      return { input: 0.10, output: 0.30 }; // Default fallback
-  }
+      return { input: 0.10, output: 0.30 }; // }
 }
 
 // Export the functions and model list
